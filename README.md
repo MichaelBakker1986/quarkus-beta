@@ -1,4 +1,4 @@
-# quarkus-beta project
+# quarkus-realtime project
 
 This project uses Quarkus, the Supersonic Subatomic Java Framework.
 
@@ -17,15 +17,16 @@ The application can be packaged using:
 ```shell script
 ./mvnw package
 ```
-It produces the `quarkus-beta-1.0.0-SNAPSHOT-runner.jar` file in the `/target` directory.
-Be aware that it’s not an _über-jar_ as the dependencies are copied into the `target/lib` directory.
+
+It produces the `quarkus-realtime-1.0.0-SNAPSHOT-runner.jar` file in the `/target` directory. Be aware that it’s not an _über-jar_ as the
+dependencies are copied into the `target/lib` directory.
 
 If you want to build an _über-jar_, execute the following command:
 ```shell script
 ./mvnw package -Dquarkus.package.type=uber-jar
 ```
 
-The application is now runnable using `java -jar target/quarkus-beta-1.0.0-SNAPSHOT-runner.jar`.
+The application is now runnable using `java -jar target/quarkus-realtime-1.0.0-SNAPSHOT-runner.jar`.
 
 ## Creating a native executable
 
@@ -39,7 +40,7 @@ Or, if you don't have GraalVM installed, you can run the native executable build
 ./mvnw package -Pnative -Dquarkus.native.container-build=true
 ```
 
-You can then execute your native executable with: `./target/quarkus-beta-1.0.0-SNAPSHOT-runner`
+You can then execute your native executable with: `./target/quarkus-realtime-1.0.0-SNAPSHOT-runner`
 
 If you want to learn more about building native executables, please consult https://quarkus.io/guides/maven-tooling.html.
 

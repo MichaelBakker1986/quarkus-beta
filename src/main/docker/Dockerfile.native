@@ -7,11 +7,11 @@
 #
 # Then, build the image with:
 #
-# docker build -f src/main/docker/Dockerfile.native -t quarkus/quarkus-beta .
+# docker build -f src/main/docker/Dockerfile.native -t quarkus/quarkus-realtime .
 #
 # Then run the container using:
 #
-# docker run -i --rm -p 8080:8080 quarkus/quarkus-beta
+# docker run -i --rm -p 8080:8080 quarkus/quarkus-realtime
 #
 ###
 FROM registry.access.redhat.com/ubi8/ubi-minimal:8.3

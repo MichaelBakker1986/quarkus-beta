@@ -15,6 +15,5 @@ import javax.persistence.*;
 public class Pro {
     @Id @GeneratedValue @Include long    id;
     @Column                      String  thumbs;
-    @Column                      byte[]  ref;
     @Column(nullable = false)    boolean downloaded = true;
 }

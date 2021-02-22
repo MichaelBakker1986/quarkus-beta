@@ -4,7 +4,6 @@ import com.google.common.base.Joiner;
 import com.opencsv.CSVParserBuilder;
 import com.opencsv.CSVReader;
 import com.opencsv.CSVReaderBuilder;
-import io.quarkus.runtime.Startup;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
@@ -21,7 +20,6 @@ import java.util.*;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 @Slf4j
-@Startup
 @ApplicationScoped
 public class PornHubUpdates {
     private static final Logger LOG = Logger.getLogger(String.valueOf(PornHubUpdates.class));

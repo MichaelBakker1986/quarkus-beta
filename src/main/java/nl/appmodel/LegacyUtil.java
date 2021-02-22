@@ -8,6 +8,7 @@ import java.util.Properties;
 @Slf4j
 public class LegacyUtil {
     public static Session session() {
+        if (true) throw new RuntimeException();
         try {
             var properties = new Properties();
             properties.put(Environment.DRIVER, "com.mysql.cj.jdbc.Driver");
@@ -21,7 +22,7 @@ public class LegacyUtil {
 
             return new Configuration()
                     .setProperties(properties)
-                    .addAnnotatedClass(Pro.class)
+                    .addAnnotatedClass(Task.class)
                     .buildSessionFactory().openSession();
         } catch (Throwable ex) {
             System.err.println("build SeesionFactory failed :" + ex);

@@ -51,4 +51,15 @@ public class XTubeDownloader {
         log.info("Process done" + i);
         new Notifier().displayTray("XTubeDownloader.deleteTubeJob() done", MessageType.INFO);
     }
+    @SneakyThrows
+    @Scheduled(cron = "0 00 9 * * ?", identity = "arrivals-xtube-job")
+    void arrivalsAddJob() {
+        ProcessBuilder pb = new ProcessBuilder("node", workspace + "\\crawler\\xtube\\XTubeArrivalsJob.js");
+        pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
+        pb.redirectError(ProcessBuilder.Redirect.INHERIT);
+        Process p = pb.start();
+        var     i = p.waitFor();
+        log.info("Process done" + i);
+        new Notifier().displayTray("XTubeDownloader.arrivalsAddJob() done", MessageType.INFO);
+    }
 }

@@ -6,6 +6,7 @@
 >
     <persistence-unit name="quarkus-realtime">
         <class>nl.appmodel.Task</class>
+        <class>nl.appmodel.realtime.Xtube</class>
 
         <!--
         <jar-file>hibernate-and-jpa-entities.jar</jar-file>

@@ -1,4 +1,4 @@
-package nl.appmodel;
+package nl.appmodel.realtime;
 
 import com.google.common.base.Charsets;
 import com.google.common.io.Files;

@@ -1,4 +1,4 @@
-package nl.appmodel.realtime;
+package nl.appmodel;
 
 import lombok.AccessLevel;
 import lombok.Data;
@@ -21,8 +21,8 @@ public class Xtube {
     @Column int    pro_id;
     @Column String code;
     @Column String url;
-    @Column String pictureM;
-    @Column String previewM;
+    @Column String picture_m;
+    @Column String preview_m;
     @Column String header;
     @Column String tag;
     @Column String tag2;

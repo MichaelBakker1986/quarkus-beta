@@ -1,4 +1,4 @@
-package nl.appmodel;
+package nl.appmodel.xtube;
 
 import com.opencsv.CSVReader;
 import io.quarkus.runtime.Startup;

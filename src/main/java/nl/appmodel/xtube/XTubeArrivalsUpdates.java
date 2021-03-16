@@ -15,21 +15,9 @@ import java.util.logging.Logger;
 @Getter
 @AllArgsConstructor
 public class XTubeArrivalsUpdates {
-    /*
-        45797341|<iframe src='https://www.xtube.com/video-watch/embedded/pdx-peephole-gloryhole-45797341' frameborder=0 width='640' height='480' scrolling=no name='xt_embed_video'></iframe><br /><a href='https://www.xtube.com/video-watch/pdx-peephole-gloryhole-45797341'>pdx peephole gloryhole</a> powered by <a href='https://www.xtube.com'>XTube</a>|https://www.xtube.com/video-watch/pdx-peephole-gloryhole-45797341|https://cdn1-s-hw-e5.xtube.com/videos/202102/22/45797341/xtube_preview/12.jpg|https://cdn1-s-hw-e5.xtube.com/videos/202102/22/45797341/xtube_preview/1.jpg,https://cdn1-s-hw-e5.xtube.com/videos/202102/22/45797341/xtube_preview/2.jpg,https://cdn1-s-hw-e5.xtube.com/videos/202102/22/45797341/xtube_preview/3.jpg,https://cdn1-s-hw-e5.xtube.com/videos/202102/22/45797341/xtube_preview/4.jpg,https://cdn1-s-hw-e5.xtube.com/videos/202102/22/45797341/xtube_preview/5.jpg,https://cdn1-s-hw-e5.xtube.com/videos/202102/22/45797341/xtube_preview/6.jpg,https://cdn1-s-hw-e5.xtube.com/videos/202102/22/45797341/xtube_preview/7.jpg,https://cdn1-s-hw-e5.xtube.com/videos/202102/22/45797341/xtube_preview/8.jpg,https://cdn1-s-hw-e5.xtube.com/videos/202102/22/45797341/xtube_preview/9.jpg,https://cdn1-s-hw-e5.xtube.com/videos/202102/22/45797341/xtube_preview/10.jpg,https://cdn1-s-hw-e5.xtube.com/videos/202102/22/45797341/xtube_preview/11.jpg,https://cdn1-s-hw-e5.xtube.com/videos/202102/22/45797341/xtube_preview/12.jpg,https://cdn1-s-hw-e5.xtube.com/videos/202102/22/45797341/xtube_preview/13.jpg,https://cdn1-s-hw-e5.xtube.com/videos/202102/22/45797341/xtube_preview/14.jpg,https://cdn1-s-hw-e5.xtube.com/videos/202102/22/45797341/xtube_preview/15.jpg|pdx peephole gloryhole|barebacked,ebony bbc,glory hole,huge cock anal,pdx|Anal,Bareback,Big Cock|Muscletight1|user_video|gay|11
-    */
-    public static void main(String[] args) {
 
-        //LegacyUtil.session()
-    }
     private static final Logger LOG = Logger.getLogger(String.valueOf(XTubeDownloader.class));
-    /*  @SneakyThrows
-     private void getRecentDeletes() {
-         URL         zipUrl  = new URL("https://www.xtube.com/webmaster/api");
-         File        zipFile = new File(zipUrl.toURI());
-         ZipFile     zip     = new ZipFile(zipFile);
-         InputStream is      = zip.getInputStream(zip.getEntry("Xtube-Recent-Deleted-Videos1.csv"));
-     }*/
+
     @SneakyThrows
     public void goDelete() {
         LOG.info("job start");
@@ -59,13 +47,12 @@ public class XTubeArrivalsUpdates {
                 }
             }
         }
-        var    lineaction = new lineaction();
+        var    lineAction = new lineaction();
         String inputLine;
         while ((inputLine = in.readLine()) != null)
-            lineaction.parse(inputLine);
+            lineAction.parse(inputLine);
         in.close();
 
         LOG.info(newlyDeleted.size() + " records to be deleted");
-        //   extracted(newlyDeleted);
     }
 }

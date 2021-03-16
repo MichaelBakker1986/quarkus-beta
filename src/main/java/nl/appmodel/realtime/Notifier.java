@@ -1,32 +1,37 @@
 package nl.appmodel.realtime;
 
+import io.quarkus.runtime.Startup;
+import io.quarkus.runtime.StartupEvent;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 import lombok.val;
+import javax.enterprise.event.Observes;
+import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.TrayIcon.MessageType;
+@Slf4j
+@Startup
 public class Notifier {
-    public static void main(String[] args) throws AWTException {
+    void onStart(@Observes StartupEvent event) {
+        log.info("App started {}", event);
+        displayTray("Demo", "App start", MessageType.WARNING);
+    }
+    public static void main(String[] args) {
         if (SystemTray.isSupported()) {
-            Notifier td = new Notifier();
-            td.displayTray("Demo", MessageType.WARNING);
+            new Notifier().onStart(new StartupEvent());
         } else {
-            System.err.println("System tray not supported!");
+            log.error("System tray not supported!");
         }
     }
     @SneakyThrows
-    public void displayTray(String message, MessageType type) {
-        //Obtain only one instance of the SystemTray object
-        val tray = SystemTray.getSystemTray();
-        //If the icon is a file
-        val image = Toolkit.getDefaultToolkit().createImage("icon.png");
-        //Alternative (if the icon is on the classpath):
-        //Image image = Toolkit.getDefaultToolkit().createImage(getClass().getResource("icon.png"));
-        var trayIcon = new TrayIcon(image, "Tray Demo");
-        //Let the system resize the image if needed
+    public void displayTray(String title, String message, MessageType type) {
+        var menu = new PopupMenu("Menu");
+        menu.add("Test-label");
+        val tray     = SystemTray.getSystemTray();
+        val image    = ImageIO.read(getClass().getClassLoader().getResource("logo64.png"));
+        var trayIcon = new TrayIcon(image, message, menu);
         trayIcon.setImageAutoSize(true);
-        //Set tooltip text for the tray icon
-        trayIcon.setToolTip("System tray icon demo");
         tray.add(trayIcon);
-        trayIcon.displayMessage("Backend attention", message, type);
+        trayIcon.displayMessage(title, message, type);
     }
 }

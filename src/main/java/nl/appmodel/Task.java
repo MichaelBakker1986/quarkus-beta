@@ -5,10 +5,8 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.extern.slf4j.Slf4j;
 import javax.persistence.Entity;
-import javax.persistence.Table;
 import java.time.Instant;
 @Entity
-@Table(name = "quartz_tasks", schema = "prosite")
 @Slf4j
 @Data
 @EqualsAndHashCode(callSuper = true)

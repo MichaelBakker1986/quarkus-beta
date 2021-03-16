@@ -6,11 +6,13 @@ import lombok.Getter;
 import lombok.SneakyThrows;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
+import nl.appmodel.realtime.NodeJSProcess;
 import nl.appmodel.realtime.Notifier;
 import org.hibernate.Session;
 import javax.inject.Inject;
 import javax.transaction.Transactional;
 import java.awt.TrayIcon.MessageType;
+@SuppressWarnings("unused")
 @Slf4j
 @ToString
 @Getter
@@ -24,17 +26,21 @@ public class XTubeDownloader {
     void deleteTubeJob2() {
         try {
             var nativeQuery = s.createNativeQuery("""
-                                                                                                UPDATE prosite.pro , prosite.xtube 
-                                                  SET prosite.xtube.status = 9,
-                                                  prosite.pro.status =9,
-                                                  prosite.xtube.updated = UNIX_TIMESTAMP()*1000
-                                                  WHERE prosite.xtube.pro_id=pro.id AND prosite.xtube.status =0 AND prosite.xtube.deleted =1;
-                                                                                                """);
+                                                            UPDATE prosite.pro p, prosite.xtube x, prosite.pro_tags pt,prosite.tags t 
+                                                            SET x.status = 9,
+                                                            p.status =9,
+                                                            x.updated = prosite.currentmillis(),
+                                                            t.updated = -prosite.currentmillis()
+                                                            WHERE x.pro_id=p.id 
+                                                            AND p.id=pt.pro 
+                                                            AND pt.tag=t.id
+                                                            AND x.status =0 AND x.deleted =1;
+                                                  """);
             int i = nativeQuery.executeUpdate();
-            new Notifier().displayTray("XTubeDownloader.deleteTubeJob2() done [" + i + "] updates", MessageType.INFO);
+            new Notifier().displayTray("", "XTubeDownloader.deleteTubeJob2() done [" + i + "] updates", MessageType.INFO);
         } catch (Exception e) {
             log.error("ERROR", e);
-            new Notifier().displayTray("XTubeDownloader.deleteTubeJob2() failed", MessageType.ERROR);
+            new Notifier().displayTray("", "XTubeDownloader.deleteTubeJob2() failed", MessageType.ERROR);
             throw e;
         }
     }
@@ -43,23 +49,13 @@ public class XTubeDownloader {
     void deleteTubeJob() {
         //start downloading all entries file
         //update insert accoringly
-        ProcessBuilder pb = new ProcessBuilder("node", workspace + "\\crawler\\xtube\\XTubeDeletedJob.js");
-        pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
-        pb.redirectError(ProcessBuilder.Redirect.INHERIT);
-        Process p = pb.start();
-        var     i = p.waitFor();
-        log.info("Process done" + i);
-        new Notifier().displayTray("XTubeDownloader.deleteTubeJob() done", MessageType.INFO);
+        log.info("Process done" + new NodeJSProcess(workspace + "\\crawler\\xtube\\XTubeDeletedJob.js").start());
+        new Notifier().displayTray("", "XTubeDownloader.deleteTubeJob() done", MessageType.INFO);
     }
     @SneakyThrows
     @Scheduled(cron = "0 00 9 * * ?", identity = "arrivals-xtube-job")
     void arrivalsAddJob() {
-        ProcessBuilder pb = new ProcessBuilder("node", workspace + "\\crawler\\xtube\\XTubeArrivalsJob.js");
-        pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
-        pb.redirectError(ProcessBuilder.Redirect.INHERIT);
-        Process p = pb.start();
-        var     i = p.waitFor();
-        log.info("Process done" + i);
-        new Notifier().displayTray("XTubeDownloader.arrivalsAddJob() done", MessageType.INFO);
+        log.info("Process done" + new NodeJSProcess(workspace + "\\crawler\\xtube\\XTubeArrivalsJob.js").start());
+        new Notifier().displayTray("", "XTubeDownloader.arrivalsAddJob() done", MessageType.INFO);
     }
 }

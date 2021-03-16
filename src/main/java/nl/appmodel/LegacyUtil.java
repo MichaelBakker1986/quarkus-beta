@@ -22,7 +22,6 @@ public class LegacyUtil {
 
             return new Configuration()
                     .setProperties(properties)
-                    .addAnnotatedClass(Task.class)
                     .buildSessionFactory().openSession();
         } catch (Throwable ex) {
             System.err.println("build SeesionFactory failed :" + ex);

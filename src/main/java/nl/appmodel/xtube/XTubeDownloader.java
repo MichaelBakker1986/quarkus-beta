@@ -8,6 +8,7 @@ import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import nl.appmodel.realtime.NodeJSProcess;
 import nl.appmodel.realtime.Notifier;
+import nl.appmodel.realtime.Update;
 import org.hibernate.Session;
 import javax.inject.Inject;
 import javax.transaction.Transactional;
@@ -17,7 +18,7 @@ import java.awt.TrayIcon.MessageType;
 @ToString
 @Getter
 @AllArgsConstructor
-public class XTubeDownloader {
+public class XTubeDownloader implements Update {
     @Inject              Session s;
     private static final String  workspace = System.getenv("PROSITE_WORKSPACE");
     @SneakyThrows

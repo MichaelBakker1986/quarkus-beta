@@ -1,7 +1,5 @@
 package nl.appmodel.realtime;
 
-import com.opencsv.CSVParserBuilder;
-import com.opencsv.CSVReaderBuilder;
 import io.quarkus.scheduler.Scheduled;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -14,7 +12,6 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import java.awt.TrayIcon.MessageType;
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
-import java.io.Reader;
 import java.io.StringReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -28,16 +25,16 @@ import java.util.logging.Logger;
 import java.util.zip.ZipInputStream;
 @Slf4j
 @ApplicationScoped
-public class PornHubUpdates {
+public class PornHubUpdates implements Update {
     private static final Logger       LOG           = Logger.getLogger(String.valueOf(PornHubUpdates.class));
     private final static Long         MILLS_IN_DAY  = 86400000L;
-    private final        Notifier     notifier      = new Notifier();
     private              long         nBytesOffset  = 0;
     private              int          changes       = 0;
     private              long         update_time   = new Date().getTime();
     private final        List<String> sqlStatements = new ArrayList<>();
     private              long         totalLength   = 0;
     private              URL          url;
+    private static final char         separator     = '|';
     @Inject
     Session session;
     @SneakyThrows
@@ -68,7 +65,7 @@ public class PornHubUpdates {
         var lastModified    = connection.getHeaderField("last-modified");
         long headerModifiedUTC = ZonedDateTime.parse(lastModified, DateTimeFormatter.RFC_1123_DATE_TIME).toInstant()
                                               .toEpochMilli();
-        connection.disconnect();
+        connection.getInputStream().close();
         if (headerModifiedUTC != cachedLastModified) {
             pornhubVideosOffset();
             session.createNativeQuery(
@@ -123,26 +120,11 @@ public class PornHubUpdates {
                 var remainder  = new String(zis.readAllBytes());
                 var first_lb   = remainder.indexOf('\n');
                 var usefulPart = remainder.substring(first_lb + 1);
-                readPornhubSourceFile(new StringReader(usefulPart));
+                readPornhubSourceFile(separator, new StringReader(usefulPart), this::readPornhubSourceFileEntry);
             } else {
                 log.info("No new data found");
             }
         }
-    }
-    @SneakyThrows
-    private void readPornhubSourceFile(Reader in_reader) {
-        var csvReaderBuilder = new CSVReaderBuilder(in_reader)
-                .withKeepCarriageReturn(true)
-                .withCSVParser(
-                        new CSVParserBuilder()
-                                .withIgnoreQuotations(true)
-                                .withSeparator('|')
-                                .withStrictQuotes(false)
-                                .build()).build();
-
-        csvReaderBuilder
-                .iterator()
-                .forEachRemaining(this::readPornhubSourceFileEntry);
     }
     @SneakyThrows
     private void readPornhubSourceFileEntry(String[] strings) {
@@ -170,21 +152,6 @@ public class PornHubUpdates {
             sqlStatements.add(
                     "(" + views + "," + duration + ",'" + cat + "',\"" + tags + "\",\"" + header + "\",\"" + picture_d + "\",\"" + preview_d + "\"," + w + "," + h + "," + pornhub_id + ",'" + keyId + "'," + update_time + ",1)");
         }
-    }
-    private String escape(String in) {
-        if (in == null) return "";
-        return in
-                .replaceAll("[{\\[]", "(")
-                .replaceAll("[}\\]]", ")")
-                .replaceAll(";", ",")
-                .replaceAll("\"", "'");
-    }
-    private boolean isNumeric(String str) {
-        // null or empty
-        if (str == null || str.length() == 0) {
-            return false;
-        }
-        return str.chars().allMatch(Character::isDigit);
     }
     @SneakyThrows
     private void batchPersist() {

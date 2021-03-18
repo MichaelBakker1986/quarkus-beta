@@ -1,4 +1,4 @@
-package nl.appmodel;
+package nl.appmodel.realtime;
 
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.Session;

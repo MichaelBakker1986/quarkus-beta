@@ -2,7 +2,7 @@ package nl.appmodel.xtube;
 
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
-import nl.appmodel.LegacyUtil;
+import nl.appmodel.realtime.LegacyUtil;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStreamReader;

@@ -1,9 +1,11 @@
-package nl.appmodel.realtime;
+package nl.appmodel.pornhub;
 
 import io.quarkus.scheduler.Scheduled;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
+import nl.appmodel.realtime.HibernateUtil;
+import nl.appmodel.realtime.Update;
 import org.hibernate.Session;
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;

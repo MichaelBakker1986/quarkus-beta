@@ -1,9 +1,11 @@
-package nl.appmodel.realtime;
+package nl.appmodel.xvideos;
 
 import io.quarkus.scheduler.Scheduled;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
+import nl.appmodel.realtime.HibernateUtil;
+import nl.appmodel.realtime.Update;
 import org.hibernate.Session;
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
@@ -100,13 +102,24 @@ public class XVideoDeletions implements Update {
     @SneakyThrows
     private void batchPersist() {
         if (sqlStatements.isEmpty()) return;
+        var updated = -new Date().getTime();
         var sql = """
                   UPDATE prosite.xvideos SET
                   status = 9,
                   updated = %s
                   WHERE embed_id IN (%s)
-                  """.formatted(-new Date().getTime(), String.join(",", sqlStatements));
+                  """.formatted(updated, String.join(",", sqlStatements));
         changes = session.createNativeQuery(sql)
                          .executeUpdate();
+        var pro_sql_update = """
+                             UPDATE prosite.pro p
+                             INNER JOIN prosite.xvideos x ON x.pro_id = p.id  
+                             SET p.status = 9,
+                                 p.updated =  :updated
+                             WHERE x.updated = :updated
+                             """;
+        changes += session.createNativeQuery(pro_sql_update)
+                          .setParameter("updated", updated)
+                          .executeUpdate();
     }
 }

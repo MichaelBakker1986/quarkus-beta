@@ -155,7 +155,7 @@ public class XVideoUpdates implements Update {
         val duration = Integer.parseInt(duration_ui.replaceAll("[^0-9]", ""));
         sqlStatements.add(
                 "(\"" + escape(
-                        code) + "\",\"" + url + "\"," + duration_ui + "," + duration + "\"" + cat + "\",\"" + tags + "\",\"" + header + "\",\"" + picture_m + "\"," + w + "," + h + ",\"" + actor + "\"," + embed_id + "," + update_time + ",1)");
+                        code) + "\",\"" + url + "\",\"" + duration_ui + "\"," + duration + ",\"" + cat + "\",\"" + tags + "\",\"" + header + "\",\"" + picture_m + "\"," + w + "," + h + ",\"" + actor + "\"," + embed_id + "," + update_time + ",1)");
     }
     @SneakyThrows
     private void batchPersist() {

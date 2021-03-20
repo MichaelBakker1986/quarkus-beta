@@ -65,11 +65,12 @@ public class PornHubUpdates implements Update {
         var connection      = (HttpURLConnection) url.openConnection();
         var headerFieldSize = connection.getHeaderField("content-length");
         var lastModified    = connection.getHeaderField("last-modified");
+        var content_length  = Long.parseLong(connection.getHeaderField("content-length"));
         long headerModifiedUTC = ZonedDateTime.parse(lastModified, DateTimeFormatter.RFC_1123_DATE_TIME).toInstant()
                                               .toEpochMilli();
         connection.getInputStream().close();
         if (headerModifiedUTC != cachedLastModified) {
-            pornhubVideosOffset();
+            pornhubVideosOffset(content_length);
             session.createNativeQuery(
                     "REPLACE INTO prosite.cursors VALUES ('pornhub_videos_file_last_modified',:pornhub_videos_file_last_modified)")
                    .setParameter(
@@ -79,7 +80,7 @@ public class PornHubUpdates implements Update {
                                  MessageType.INFO);
         }
     }
-    public void pornhubVideosOffset() {
+    public void pornhubVideosOffset(long content_length) {
         try {
             update_time = new Date().getTime();
             sqlStatements.clear();
@@ -105,7 +106,7 @@ public class PornHubUpdates implements Update {
         }
     }
     @SneakyThrows
-    private void pornhubVideos() {
+    public void pornhubVideos() {
         try (var bis = new BufferedInputStream(url.openStream());
              var zis = new ZipInputStream(bis)) {
             //we will only use the first entry

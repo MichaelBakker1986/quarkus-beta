@@ -1,24 +1,18 @@
 package nl.appmodel.realtime;
 
 import io.quarkus.runtime.Startup;
-import io.quarkus.runtime.StartupEvent;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
-import javax.enterprise.event.Observes;
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.TrayIcon.MessageType;
 @Slf4j
 @Startup
 public class Notifier {
-    void onStart(@Observes StartupEvent event) {
-        log.info("App started {}", event);
-        displayTray("Demo", "App start", MessageType.WARNING);
-    }
     public static void main(String[] args) {
         if (SystemTray.isSupported()) {
-            new Notifier().onStart(new StartupEvent());
+            new Notifier().displayTray("Demo", "App start", MessageType.WARNING);
         } else {
             log.error("System tray not supported!");
         }

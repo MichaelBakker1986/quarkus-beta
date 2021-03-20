@@ -51,7 +51,7 @@ public class XVideoDeletions implements Update {
     public void preflight() {
         preflight(session, this::xvideosVideos, url = new URL(zip_url));
     }
-    public void xvideosVideos() {
+    public void xvideosVideos(long content_length) {
         try {
             update_time = new Date().getTime();
             sqlStatements.clear();

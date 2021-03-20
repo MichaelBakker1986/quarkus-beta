@@ -45,11 +45,11 @@ public interface Update {
                 .forEachRemaining(consumer);
     }
     @SneakyThrows
-    default void preflight(Session session, Runnable runnable, URL url) {
+    default void preflight(Session session, Consumer<Long> runnable, URL url) {
         this.preflight(getClass().getSimpleName().toLowerCase(), session, runnable, url);
     }
     @SneakyThrows
-    default void preflight(String param_name, Session session, Runnable runnable, URL url) {
+    default void preflight(String param_name, Session session, Consumer<Long> runnable, URL url) {
         long cachedLastModified = Long.parseLong(String.valueOf(
                 session.createNativeQuery(
                         "SELECT IFNULL((SELECT value from prosite.cursors c where c.name=:param_name),0)")
@@ -59,11 +59,13 @@ public interface Update {
         var connection      = (HttpURLConnection) url.openConnection();
         var headerFieldSize = connection.getHeaderField("content-length");
         var lastModified    = connection.getHeaderField("last-modified");
+        var contentLength   = Long.parseLong(connection.getHeaderField("content-length"));
+
         long headerModifiedUTC = ZonedDateTime.parse(lastModified, DateTimeFormatter.RFC_1123_DATE_TIME).toInstant()
                                               .toEpochMilli();
         connection.getInputStream().close();
         if (headerModifiedUTC != cachedLastModified) {
-            runnable.run();
+            runnable.accept(contentLength);
             session.createNativeQuery(
                     "REPLACE INTO prosite.cursors VALUES (:param_name,:file_last_modified)")
                    .setParameter("param_name", param_name)

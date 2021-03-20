@@ -122,7 +122,7 @@ public class PornHubUpdates implements Update {
                 var remainder  = new String(zis.readAllBytes());
                 var first_lb   = remainder.indexOf('\n');
                 var usefulPart = remainder.substring(first_lb + 1);
-                readPornhubSourceFile(separator, new StringReader(usefulPart), this::readPornhubSourceFileEntry);
+                readSourceFile(separator, new StringReader(usefulPart), this::readPornhubSourceFileEntry);
             } else {
                 log.info("No new data found");
             }

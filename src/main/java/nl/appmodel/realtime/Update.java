@@ -12,7 +12,8 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.function.Consumer;
 public interface Update {
-    Notifier notifier = new Notifier();
+    Notifier notifier     = new Notifier();
+    Long     MILLS_IN_DAY = 86400000L;
     default String escape(String in) {
         if (in == null) return "";
         return in
@@ -29,7 +30,7 @@ public interface Update {
         return str.chars().allMatch(Character::isDigit);
     }
     @SneakyThrows
-    default void readPornhubSourceFile(char sep, Reader in_reader, Consumer<String[]> consumer) {
+    default void readSourceFile(char sep, Reader in_reader, Consumer<String[]> consumer) {
         var csvReaderBuilder = new CSVReaderBuilder(in_reader)
                 .withKeepCarriageReturn(true)
                 .withCSVParser(
@@ -45,10 +46,14 @@ public interface Update {
     }
     @SneakyThrows
     default void preflight(Session session, Runnable runnable, URL url) {
+        this.preflight(getClass().getSimpleName().toLowerCase(), session, runnable, url);
+    }
+    @SneakyThrows
+    default void preflight(String param_name, Session session, Runnable runnable, URL url) {
         long cachedLastModified = Long.parseLong(String.valueOf(
                 session.createNativeQuery(
-                        "SELECT IFNULL((SELECT value from prosite.cursors c where c.name=:name),0)")
-                       .setParameter("name", getClass().getSimpleName().toLowerCase())
+                        "SELECT IFNULL((SELECT value from prosite.cursors c where c.name=:param_name),0)")
+                       .setParameter("param_name", param_name)
                        .getSingleResult()));
 
         var connection      = (HttpURLConnection) url.openConnection();
@@ -60,8 +65,8 @@ public interface Update {
         if (headerModifiedUTC != cachedLastModified) {
             runnable.run();
             session.createNativeQuery(
-                    "REPLACE INTO prosite.cursors VALUES (:name,:file_last_modified)")
-                   .setParameter("name", getClass().getName().toLowerCase())
+                    "REPLACE INTO prosite.cursors VALUES (:param_name,:file_last_modified)")
+                   .setParameter("param_name", param_name)
                    .setParameter("file_last_modified", String.valueOf(headerModifiedUTC))
                    .executeUpdate();
         } else {

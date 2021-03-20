@@ -79,7 +79,7 @@ public class XVideoDeletions implements Update {
             log.info("File: {} Size: {} Last Modified {}", ze.getName(), ze.getSize(), LocalDate.ofEpochDay(ze.getTime() / MILLS_IN_DAY));
             totalLength = ze.getSize();
             var usefulPart = new String(zis.readAllBytes());
-            readPornhubSourceFile('|', new StringReader(usefulPart), this::readXVideosSourceFileEntry);
+            readSourceFile('|', new StringReader(usefulPart), this::readXVideosSourceFileEntry);
         }
     }
     /*

@@ -118,7 +118,7 @@ public class XVideoUpdates implements Update {
                      LocalDate.ofEpochDay(ze.getTime() / MILLS_IN_DAY));
             totalLength = ze.getSize();
             var usefulPart = new String(zis.readAllBytes());
-            readPornhubSourceFile(';', new StringReader(usefulPart), this::readXVideosSourceFileEntry);
+            readSourceFile(';', new StringReader(usefulPart), this::readXVideosSourceFileEntry);
         }
     }
     /*

@@ -50,11 +50,11 @@ public class YouPornUpdates implements Update {
         pornHubUpdates.session.getTransaction().commit();
         pornHubUpdates.session.close();
     }
-    @Scheduled(cron = "0 56 23 * * ?", identity = "new-pornhub-videos")
+    @Scheduled(cron = "0 56 23 * * ?", identity = "new-youporn-videos")
     @Transactional
     @SneakyThrows
     public final void preflight() {
-        //url = new URL(zip_url);
+        url = new URL(zip_url);
         this.preflight(session, this::download, url);
     }
     public void download(long content_length) {

@@ -102,7 +102,7 @@ public class UpdateTags {
                                                 /*
                                                  insert new Tags
                                                 */
-                                                INSERT INTO prosite.tags
+                                                INSERT IGNORE INTO prosite.tags
                                                 SELECT null AS id,
                                                         mtt.idx AS name,
                                                         REGEXP_SUBSTR(mtt.idx, '[a-z0-9]{2}') short_2,
@@ -161,7 +161,7 @@ public class UpdateTags {
                                                 UPDATE prosite.pro p INNER JOIN tmp_pro
                                                 ON p.id= tmp_pro.pro_id
                                                 SET 
-                                                    p.STATUS = IF(downloaded, 2, 3),
+                                                    p.status = IF(downloaded, 2, 3),
                                                     p.updated = prosite.currentmillis();
                                                                                    
                                                 DROP TABLE IF EXISTS tmp_tags;

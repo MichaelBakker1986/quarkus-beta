@@ -17,21 +17,20 @@ public class DownloadedVideosJob {
     public void updateVideosJob() {
         try {
             int changes = s.createNativeQuery("""
-                                              INSERT INTO prosite.host
-                                              SELECT h.*,prosite.currentmillis() updated from (SELECT 
-                                               SUBSTRING_INDEX(SUBSTRING_INDEX(thumbs, '/', 3), '://', -1) name,
-                                               min(id) counter,
-                                               min(id) start,
-                                               max(id) end,
-                                               count(*) downloaded
-                                              from prosite.pro
-                                              where status = 2
-                                              group by SUBSTRING_INDEX(SUBSTRING_INDEX(thumbs, '/', 3), '://', -1) )as h
-                                               ON DUPLICATE KEY UPDATE 
-                                                downloaded=h.downloaded,
-                                                start=h.start,
-                                                end=h.end,
-                                                updated=prosite.currentmillis(); 
+                                              drop table if exists tmp_host;
+                                              create table tmp_host($domain varchar(72),status int,min int,max int,count int) ENGINE=MEMORY SELECT $domain,status,min(id) min,max(id) max,count(*) count FROM prosite.pro_info 
+                                              where $valid_domain =1 
+                                              group by $domain,status;
+                                                                                            
+                                              REPLACE INTO prosite.host 
+                                              (SELECT th.$domain domain,IFNULL(IFNULL(p.pointer,dl.dl),th.min) pointer,th.min start,th.max end, IFNULL(d.downloaded,0) downloaded,IFNULL(e.err,0) errors,IFNULL(dl.dl,0) dl, prosite.currentmillis() updated FROM 
+                                              (SELECT $domain,min(min) min,max(max) max FROM tmp_host GROUP BY $domain) as th
+                                              LEFT OUTER JOIN (SELECT $domain, MIN(min) pointer FROM tmp_host WHERE status = 3 GROUP BY $domain) as p ON th.$domain =p.$domain
+                                              LEFT OUTER JOIN (SELECT $domain, MAX(max) dl FROM tmp_host WHERE status = 2 GROUP BY $domain) as dl ON th.$domain =dl.$domain
+                                              LEFT OUTER JOIN (SELECT $domain, SUM(count) downloaded FROM tmp_host WHERE status = 2 GROUP BY $domain) as d ON th.$domain =d.$domain
+                                              LEFT OUTER JOIN (SELECT $domain, SUM(count) err FROM tmp_host WHERE status >= 9 GROUP BY $domain) as e ON th.$domain =e.$domain
+                                              );
+                                              drop table if exists tmp_host;
                                               """)
                            .executeUpdate();
             notifier.displayTray("Update host table", "Changes: " + changes, MessageType.INFO);

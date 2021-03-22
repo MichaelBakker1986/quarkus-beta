@@ -10,10 +10,9 @@ import javax.enterprise.context.ApplicationScoped;
 @ToString
 @ApplicationScoped
 public class DailyYouPornRSSFeed {
-    private static final String workspace = System.getenv("PROSITE_WORKSPACE");
     @SneakyThrows
     @Scheduled(cron = "0 30 23 * * ?", identity = "daily-youporn-rss-daily-crawl-deleted")
     public void DailyCrawlDeleted() {
-      new NodeJSProcess(workspace + "\\crawler\\youporn\\DailyCrawlYouporn.js").startAndLog();
+        new NodeJSProcess("\\crawler\\youporn\\DailyCrawlYouporn.js").startAndLog();
     }
 }

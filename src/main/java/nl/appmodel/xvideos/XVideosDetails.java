@@ -12,10 +12,9 @@ import javax.enterprise.context.ApplicationScoped;
 @ToString
 @ApplicationScoped
 public class XVideosDetails implements Update {
-    private static final String workspace = System.getenv("PROSITE_WORKSPACE");
     @SneakyThrows
     @Scheduled(cron = "0 53 02 * * ?", identity = "xvideos-details-job")
     public void xvideos_details() {
-        new NodeJSProcess(workspace + "\\crawler\\xvideos\\xvideo_detail.js").startAndLog();
+        new NodeJSProcess("\\crawler\\xvideos\\xvideo_detail.js").startAndLog();
     }
 }

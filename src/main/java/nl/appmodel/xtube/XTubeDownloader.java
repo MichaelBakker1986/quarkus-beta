@@ -19,8 +19,7 @@ import java.awt.TrayIcon.MessageType;
 @Getter
 @AllArgsConstructor
 public class XTubeDownloader implements Update {
-    @Inject              Session s;
-    private static final String  workspace = System.getenv("PROSITE_WORKSPACE");
+    @Inject Session s;
     @SneakyThrows
     @Scheduled(cron = "0 37 5 * * ?", identity = "update_pro_delete-tube-job")
     @Transactional
@@ -48,11 +47,11 @@ public class XTubeDownloader implements Update {
     @SneakyThrows
     @Scheduled(cron = "0 38 4 * * ?", identity = "delete-tube-job")
     void deleteTubeJob() {
-        new NodeJSProcess(workspace + "\\crawler\\xtube\\XTubeDeletedJob.js").startAndLog();
+        new NodeJSProcess("\\crawler\\xtube\\XTubeDeletedJob.js").startAndLog();
     }
     @SneakyThrows
     @Scheduled(cron = "0 00 9 * * ?", identity = "arrivals-xtube-job")
     void arrivalsAddJob() {
-        new NodeJSProcess(workspace + "\\crawler\\xtube\\XTubeArrivalsJob.js").startAndLog();
+        new NodeJSProcess("\\crawler\\xtube\\XTubeArrivalsJob.js").startAndLog();
     }
 }

@@ -11,11 +11,12 @@ import java.awt.TrayIcon.MessageType;
 @Getter
 @AllArgsConstructor
 public class NodeJSProcess {
-    private static final Notifier notifier = new Notifier();
+    private static final String   workspace = System.getenv("PROSITE_WORKSPACE");
+    private static final Notifier notifier  = new Notifier();
     String path;
     @SneakyThrows
     public int start() {
-        ProcessBuilder pb = new ProcessBuilder("node", this.path);
+        ProcessBuilder pb = new ProcessBuilder("node", workspace + this.path);
         pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
         pb.redirectError(ProcessBuilder.Redirect.INHERIT);
         Process p = pb.start();

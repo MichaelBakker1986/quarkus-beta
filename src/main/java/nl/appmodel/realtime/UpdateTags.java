@@ -66,7 +66,7 @@ public class UpdateTags {
                                                        
                                                 DROP TABLE IF EXISTS tmp_pro;
                                                 CREATE TEMPORARY TABLE tmp_pro(pro_id int PRIMARY KEY,tag_set VARCHAR(1024))  ENGINE = MEMORY;
-                                                INSERT INTO tmp_pro (SELECT id pro_id,tag_set as tag_set from prosite.pro WHERE STATUS = 1  );
+                                                INSERT INTO tmp_pro (SELECT id pro_id,tag_set as tag_set from prosite.pro WHERE STATUS = 1 OR status = 4);
                                                        
                                                 /*
                                                  Extract tags from pro table

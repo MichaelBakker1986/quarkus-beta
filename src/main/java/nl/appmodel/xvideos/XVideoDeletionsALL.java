@@ -46,7 +46,7 @@ public class XVideoDeletionsALL implements Update {
         pornHubUpdates.session.getTransaction().commit();
         pornHubUpdates.session.close();
     }
-    @Scheduled(cron = "0 35 03 * * ?", identity = "deletions-all-xvideos-videos")
+    @Scheduled(cron = "0 37 03 * * ?", identity = "deletions-all-xvideos-videos")
     @Transactional
     @SneakyThrows
     public void preflight() {

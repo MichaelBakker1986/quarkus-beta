@@ -46,7 +46,7 @@ public class XVideoDeletionsALL implements Update {
         pornHubUpdates.session.getTransaction().commit();
         pornHubUpdates.session.close();
     }
-    @Scheduled(cron = "0 31 03 * * ?", identity = "deletions-all-xvideos-videos")
+    @Scheduled(cron = "0 37 03 * * ?", identity = "deletions-all-xvideos-videos")
     @Transactional
     @SneakyThrows
     public void preflight() {
@@ -107,28 +107,30 @@ public class XVideoDeletionsALL implements Update {
         if (sqlStatements.isEmpty()) return;
         val asSet   = new HashSet<>(sqlStatements);
         var updated = -new Date().getTime();
-        while (!sqlStatements.isEmpty()) {
+        while (!asSet.isEmpty()) {
             var allStatements = new ArrayList<>(asSet);
             var subset        = new ArrayList<>(allStatements.subList(0, Math.min(allStatements.size(), 100000)));
             asSet.removeAll(subset);
-            var sql = """
-                      UPDATE prosite.xvideos SET
-                      status = 9,
-                      updated = %s
-                      WHERE embed_id IN (%s)
-                      """.formatted(updated, String.join(",", subset));
-            changes += session.createNativeQuery(sql)
-                              .executeUpdate();
-            var pro_sql_update = """
-                                 UPDATE prosite.pro p
-                                 INNER JOIN prosite.xvideos x ON x.pro_id = p.id  
-                                 SET p.status = 9,
-                                     p.updated =  :updated
-                                 WHERE x.updated = :updated
-                                 """;
-            changes += session.createNativeQuery(pro_sql_update)
-                              .setParameter("updated", updated)
-                              .executeUpdate();
+            if (!subset.isEmpty()) {
+                var sql = """
+                          UPDATE prosite.xvideos SET
+                          status = 9,
+                          updated = %s
+                          WHERE embed_id IN (%s)
+                          """.formatted(updated, String.join(",", subset));
+                changes += session.createNativeQuery(sql)
+                                  .executeUpdate();
+            }
         }
+        var pro_sql_update = """
+                             UPDATE prosite.pro p
+                             INNER JOIN prosite.xvideos x ON x.pro_id = p.id  
+                             SET p.status = 9,
+                                 p.updated =  :updated
+                             WHERE x.updated = :updated
+                             """;
+        changes += session.createNativeQuery(pro_sql_update)
+                          .setParameter("updated", updated)
+                          .executeUpdate();
     }
 }

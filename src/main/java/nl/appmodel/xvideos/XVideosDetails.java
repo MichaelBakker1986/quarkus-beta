@@ -16,7 +16,7 @@ import java.awt.TrayIcon.MessageType;
 public class XVideosDetails implements Update {
     private static final String workspace = System.getenv("PROSITE_WORKSPACE");
     @SneakyThrows
-    @Scheduled(cron = "0 49 02 * * ?", identity = "xvideos-details")
+    @Scheduled(cron = "0 53 02 * * ?", identity = "xvideos-details-job")
     public void xvideos_details() {
         log.info("Process done" + new NodeJSProcess(workspace + "\\crawler\\xvideos\\xvideo_detail.js").start());
         new Notifier().displayTray("", "XVideosDetails.xvideos_details() done", MessageType.INFO);

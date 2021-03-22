@@ -28,7 +28,7 @@ public class XVideoDeletionsALL implements Update {
     private final static Long         MILLS_IN_DAY  = 86400000L;
     private              int          changes       = 0;
     private              long         update_time   = new Date().getTime();
-    private final        List<String> sqlStatements = new ArrayList<>();
+    private              List<String> sqlStatements = new ArrayList<>();
     private              long         totalLength   = 0;
     private              URL          url;
     private static final String       zip_url       = "https://webmaster-tools.xvideos.com/xvideos.com-deleted-full.csv.zip";
@@ -41,12 +41,11 @@ public class XVideoDeletionsALL implements Update {
         pornHubUpdates.session = HibernateUtil.getCurrentSession();
         pornHubUpdates.session.getTransaction().begin();
         pornHubUpdates.update_time = new Date().getTime();
-        pornHubUpdates.sqlStatements.clear();
         pornHubUpdates.preflight();
         pornHubUpdates.session.getTransaction().commit();
         pornHubUpdates.session.close();
     }
-    @Scheduled(cron = "0 37 03 * * ?", identity = "deletions-all-xvideos-videos")
+    @Scheduled(cron = "0 42 03 * * ?", identity = "deletions-all-xvideos-videos")
     @Transactional
     @SneakyThrows
     public void preflight() {
@@ -55,8 +54,7 @@ public class XVideoDeletionsALL implements Update {
     public void xvideosVideos(long content_length) {
         try {
             update_time = new Date().getTime();
-            sqlStatements.clear();
-            changes = 0;
+            changes     = 0;
             xvideosDeletedAll();
             batchPersist();
             notifier.displayTray("Success - XVideos - delete", "deleted [" + changes + "] offset [" + 0 + "] total [" + totalLength + "]",
@@ -66,7 +64,6 @@ public class XVideoDeletionsALL implements Update {
             log.error("ERROR", e);
             notifier.displayTray("Fail - XVideos - delete", e.getMessage(), MessageType.ERROR);
         } finally {
-            sqlStatements.clear();
             changes = 0;
             notifier.displayTray("Success - XVideos - delete", "deleted [" + changes + "] offset [" + 0 + "] total [" + totalLength + "]",
                                  MessageType.INFO);
@@ -105,7 +102,9 @@ public class XVideoDeletionsALL implements Update {
     @SneakyThrows
     private void batchPersist() {
         if (sqlStatements.isEmpty()) return;
-        val asSet   = new HashSet<>(sqlStatements);
+        val new_sqlStatements = sqlStatements;
+        sqlStatements = new ArrayList<>();
+        val asSet   = new HashSet<>(new_sqlStatements);
         var updated = -new Date().getTime();
         while (!asSet.isEmpty()) {
             var allStatements = new ArrayList<>(asSet);

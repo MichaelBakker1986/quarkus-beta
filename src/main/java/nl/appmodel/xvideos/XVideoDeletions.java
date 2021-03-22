@@ -102,24 +102,18 @@ public class XVideoDeletions implements Update {
     @SneakyThrows
     private void batchPersist() {
         if (sqlStatements.isEmpty()) return;
-        var updated = -new Date().getTime();
-        var sql = """
-                  UPDATE prosite.xvideos SET
-                  status = 9,
-                  updated = %s
-                  WHERE embed_id IN (%s)
-                  """.formatted(updated, String.join(",", sqlStatements));
-        changes = session.createNativeQuery(sql)
-                         .executeUpdate();
         var pro_sql_update = """
-                             UPDATE prosite.pro p
-                             INNER JOIN prosite.xvideos x ON x.pro_id = p.id  
+                             UPDATE prosite.pro p, prosite.xvideos x                               
                              SET p.status = 9,
-                                 p.updated =  :updated
-                             WHERE x.updated = :updated
-                             """;
+                                 x.status = 9,
+                                 x.updated = :updated,
+                                 p.updated = :updated
+                             WHERE
+                                 x.pro_id = p.id
+                                 AND x.embed_id IN (%s)  
+                             """.formatted(String.join(",", sqlStatements));
         changes += session.createNativeQuery(pro_sql_update)
-                          .setParameter("updated", updated)
+                          .setParameter("updated", -System.currentTimeMillis())
                           .executeUpdate();
     }
 }

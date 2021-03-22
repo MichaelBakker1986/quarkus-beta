@@ -23,7 +23,7 @@ public class DownloadedVideosJob {
                                               group by $domain,status;
                                                                                             
                                               REPLACE INTO prosite.host 
-                                              (SELECT th.$domain domain,IFNULL(IFNULL(p.pointer,dl.dl),th.min) pointer,th.min start,th.max end, IFNULL(d.downloaded,0) downloaded,IFNULL(e.err,0) errors,IFNULL(dl.dl,0) dl, prosite.currentmillis() updated FROM 
+                                              (SELECT th.$domain domain,IFNULL(IFNULL(p.pointer,dl.dl),th.min) pointer,th.min start,th.max end, IFNULL(d.downloaded,0) downloaded,IFNULL(e.err,0) errors,IFNULL(dl.dl,0) dl, %s updated FROM 
                                               (SELECT $domain,min(min) min,max(max) max FROM tmp_host GROUP BY $domain) as th
                                               LEFT OUTER JOIN (SELECT $domain, MIN(min) pointer FROM tmp_host WHERE status = 3 GROUP BY $domain) as p ON th.$domain =p.$domain
                                               LEFT OUTER JOIN (SELECT $domain, MAX(max) dl FROM tmp_host WHERE status = 2 GROUP BY $domain) as dl ON th.$domain =dl.$domain
@@ -31,7 +31,7 @@ public class DownloadedVideosJob {
                                               LEFT OUTER JOIN (SELECT $domain, SUM(count) err FROM tmp_host WHERE status >= 9 GROUP BY $domain) as e ON th.$domain =e.$domain
                                               );
                                               drop table if exists tmp_host;
-                                              """)
+                                              """.formatted(System.currentTimeMillis()))
                            .executeUpdate();
             notifier.displayTray("Update host table", "Changes: " + changes, MessageType.INFO);
         } catch (Exception e) {

@@ -7,36 +7,24 @@ import lombok.SneakyThrows;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import nl.appmodel.realtime.NodeJSProcess;
-import nl.appmodel.realtime.Notifier;
-import java.awt.TrayIcon.MessageType;
 @Slf4j
 @ToString
 @Getter
 @AllArgsConstructor
 public class DailyPornhubRSSFeed {
-    private static final String workspace = System.getenv("PROSITE_WORKSPACE");
     @SneakyThrows
     @Scheduled(cron = "0 01 02 * * ?", identity = "daily-pornhub-rss-feed")
     void updatePornHubFromRRS() {
-        var status = new NodeJSProcess(workspace + "\\crawler\\pornhub\\RSSFeed_PornHub.js").start();
-        log.info("Process done" + status);
-        new Notifier().displayTray("RSS - Pornhub - Finished", "DailyPornhubRSSFeed.updatePornHubFromRRS() done",
-                                   status == 0 ? MessageType.INFO : MessageType.ERROR);
+        new NodeJSProcess("\\crawler\\pornhub\\RSSFeed_PornHub.js").startAndLog();
     }
     @SneakyThrows
     @Scheduled(cron = "0 10 02 * * ?", identity = "daily-pornhub-rss-feed-detail")
     void updatePornHubFromRRSDetail() {
-        var status = new NodeJSProcess(workspace + "\\crawler\\pornhub\\DetailPornHub.js").start();
-        log.info("Process done" + status);
-        new Notifier().displayTray("RSSDetail - Pornhub - Finished", "DailyPornhubRSSFeed.updatePornHubFromRRSDetail() done",
-                                   status == 0 ? MessageType.INFO : MessageType.ERROR);
+        new NodeJSProcess("\\crawler\\pornhub\\DetailPornHub.js").startAndLog();
     }
     @SneakyThrows
     @Scheduled(cron = "0 49 22 * * ?", identity = "daily-pornhub-rss-daily-crawl-deleted")
     void DailyCrawlDeleted() {
-        var status = new NodeJSProcess(workspace + "\\crawler\\pornhub\\DailyCrawl.js").start();
-        log.info("Process done" + status);
-        new Notifier().displayTray("DailyCrawl - Pornhub - Finished", "DailyPornhubRSSFeed.DailyCrawlDeleted() done",
-                                   status == 0 ? MessageType.INFO : MessageType.ERROR);
+        new NodeJSProcess("\\crawler\\pornhub\\DailyCrawl.js").startAndLog();
     }
 }

@@ -64,7 +64,6 @@ public class XVideoDeletionsALL implements Update {
             log.error("ERROR", e);
             notifier.displayTray("Fail - XVideos - delete", e.getMessage(), MessageType.ERROR);
         } finally {
-            changes = 0;
             notifier.displayTray("Success - XVideos - delete", "deleted [" + changes + "] offset [" + 0 + "] total [" + totalLength + "]",
                                  MessageType.INFO);
         }
@@ -105,7 +104,7 @@ public class XVideoDeletionsALL implements Update {
         val new_sqlStatements = sqlStatements;
         sqlStatements = new ArrayList<>();
         val asSet   = new HashSet<>(new_sqlStatements);
-        var updated = -new Date().getTime();
+        var updated = -System.currentTimeMillis();
         while (!asSet.isEmpty()) {
             var allStatements = new ArrayList<>(asSet);
             var subset        = new ArrayList<>(allStatements.subList(0, Math.min(allStatements.size(), 100000)));

@@ -19,8 +19,7 @@ import java.awt.TrayIcon.MessageType;
 @Getter
 @AllArgsConstructor
 public class XTubeDownloader implements Update {
-    @Inject              Session s;
-    private static final String  workspace = System.getenv("PROSITE_WORKSPACE");
+    @Inject Session s;
     @SneakyThrows
     @Scheduled(cron = "0 37 5 * * ?", identity = "update_pro_delete-tube-job")
     @Transactional
@@ -30,14 +29,14 @@ public class XTubeDownloader implements Update {
                                                             UPDATE prosite.pro p, prosite.xtube x, prosite.pro_tags pt,prosite.tags t 
                                                             SET x.status = 9,
                                                             p.status =9,
-                                                            x.updated = prosite.currentmillis(),
-                                                            t.updated = -prosite.currentmillis()
+                                                            x.updated = :updated,
+                                                            t.updated = -:updated
                                                             WHERE x.pro_id=p.id 
                                                             AND p.id=pt.pro 
                                                             AND pt.tag=t.id
                                                             AND x.status =0 AND x.deleted =1;
                                                   """);
-            int i = nativeQuery.executeUpdate();
+            int i = nativeQuery.setParameter("updated", System.currentTimeMillis()).executeUpdate();
             new Notifier().displayTray("", "XTubeDownloader.deleteTubeJob2() done [" + i + "] updates", MessageType.INFO);
         } catch (Exception e) {
             log.error("ERROR", e);
@@ -48,15 +47,11 @@ public class XTubeDownloader implements Update {
     @SneakyThrows
     @Scheduled(cron = "0 38 4 * * ?", identity = "delete-tube-job")
     void deleteTubeJob() {
-        //start downloading all entries file
-        //update insert accoringly
-        log.info("Process done" + new NodeJSProcess(workspace + "\\crawler\\xtube\\XTubeDeletedJob.js").start());
-        new Notifier().displayTray("", "XTubeDownloader.deleteTubeJob() done", MessageType.INFO);
+        new NodeJSProcess("\\crawler\\xtube\\XTubeDeletedJob.js").startAndLog();
     }
     @SneakyThrows
     @Scheduled(cron = "0 00 9 * * ?", identity = "arrivals-xtube-job")
     void arrivalsAddJob() {
-        log.info("Process done" + new NodeJSProcess(workspace + "\\crawler\\xtube\\XTubeArrivalsJob.js").start());
-        new Notifier().displayTray("", "XTubeDownloader.arrivalsAddJob() done", MessageType.INFO);
+        new NodeJSProcess("\\crawler\\xtube\\XTubeArrivalsJob.js").startAndLog();
     }
 }

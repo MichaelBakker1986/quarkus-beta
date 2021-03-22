@@ -22,17 +22,20 @@ public class UpdateTags {
         var executionUpdateTime = System.currentTimeMillis();
         for (Network network : Network.values()) {
             val updates = session.createNativeQuery("""
-                                                    UPDATE %s x set x.ref = UUID_SHORT(),x.updated = -prosite.currentmillis() where x.pro_id IS NULL AND x.ref IS NULL
+                                                    UPDATE %s x set x.ref = UUID_SHORT(),x.updated = -:updated where x.pro_id IS NULL AND x.ref IS NULL
                                                         """.formatted(network.tableName())
-                                                   ).executeUpdate();
+                                                   ).setParameter("updated", executionUpdateTime)
+                                 .executeUpdate();
 
             val changes = session.createNativeQuery("""
                                                     INSERT INTO prosite.pro (id, thumbs, downloaded, views, tag_set, header, embed, w, h, status, duration,ref,updated) 
-                                                    (SELECT null,%s,n.status=2,IFNULL(n.views,-1),%s,header,%s,%s,%s,1,IFNULL(n.duration,-1),ref,-prosite.currentmillis() From %s n where n.pro_id IS NULL AND n.ref IS NOT NULL)
+                                                    (SELECT null,%s,n.status=2,IFNULL(n.views,-1),%s,header,%s,%s,%s,1,IFNULL(n.duration,-1),ref,-:updated From %s n where n.pro_id IS NULL AND n.ref IS NOT NULL)
                                                     """.formatted(network.getThumb_col(), network.getTagSetJoiner(), network.getCode(),
                                                                   network.getW(), network.getH(),
                                                                   network.tableName())
-                                                   ).executeUpdate();
+                                                   )
+                                 .setParameter("updated", executionUpdateTime)
+                                 .executeUpdate();
             val pro_id = session.createNativeQuery("""
                                                    UPDATE %s x
                                                    JOIN prosite.pro p on p.ref=x.ref 

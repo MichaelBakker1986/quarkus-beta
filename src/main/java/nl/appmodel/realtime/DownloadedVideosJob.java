@@ -1,6 +1,7 @@
 package nl.appmodel.realtime;
 
 import io.quarkus.scheduler.Scheduled;
+import lombok.SneakyThrows;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.Session;
@@ -39,5 +40,15 @@ public class DownloadedVideosJob {
             notifier.displayTray("Update host table", e.getMessage(), MessageType.ERROR);
             throw e;
         }
+    }
+    public void updateEntities(Session session) {
+        this.s = session;
+        //this.insertRowsToProTable();
+        this.updateVideosJob();
+    }
+    @SneakyThrows
+    public static void main(String[] args) {
+        var job = new DownloadedVideosJob();
+        HibernateUtil.run(job::updateEntities);
     }
 }

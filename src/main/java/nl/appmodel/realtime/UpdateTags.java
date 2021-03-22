@@ -1,6 +1,7 @@
 package nl.appmodel.realtime;
 
 import io.quarkus.scheduler.Scheduled;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import nl.appmodel.Network;
@@ -178,5 +179,15 @@ public class UpdateTags {
                                      )
                              .executeUpdate();
         notifier.displayTray("connect-new-entries-tags", "connect-new-entries-tags [ " + updates + " ]", MessageType.INFO);
+    }
+    public void updateEntities(Session session) {
+        this.session = session;
+        //this.insertRowsToProTable();
+        this.connect();
+    }
+    @SneakyThrows
+    public static void main(String[] args) {
+        var job = new UpdateTags();
+        HibernateUtil.run(job::updateEntities);
     }
 }

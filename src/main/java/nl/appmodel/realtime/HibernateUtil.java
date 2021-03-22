@@ -20,7 +20,7 @@ public class HibernateUtil {
 
         var properties = new Properties();
         properties.put(Environment.DRIVER, "com.mysql.cj.jdbc.Driver");
-        properties.put(Environment.URL, "jdbc:mysql:///prosite?serverTimezone=UTC&namedPipePath=\\\\.\\pipe\\MySQL");
+        properties.put(Environment.URL, "jdbc:mysql:///prosite?serverTimezone=UTC&allowMultiQueries=true&namedPipePath=\\\\.\\pipe\\MySQL");
         properties.put(Environment.USER, "server");
         properties.put(Environment.PASS, "Welkom05!");
         properties.put(Environment.FORMAT_SQL, "false");

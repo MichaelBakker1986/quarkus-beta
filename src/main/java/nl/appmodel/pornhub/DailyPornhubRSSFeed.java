@@ -16,7 +16,7 @@ import java.awt.TrayIcon.MessageType;
 public class DailyPornhubRSSFeed {
     private static final String workspace = System.getenv("PROSITE_WORKSPACE");
     @SneakyThrows
-    @Scheduled(cron = "0 01 2 * * ?", identity = "daily-pornhub-rss-feed")
+    @Scheduled(cron = "0 01 02 * * ?", identity = "daily-pornhub-rss-feed")
     void updatePornHubFromRRS() {
         var status = new NodeJSProcess(workspace + "\\crawler\\pornhub\\RSSFeed_PornHub.js").start();
         log.info("Process done" + status);
@@ -24,7 +24,7 @@ public class DailyPornhubRSSFeed {
                                    status == 0 ? MessageType.INFO : MessageType.ERROR);
     }
     @SneakyThrows
-    @Scheduled(cron = "0 10 2 * * ?", identity = "daily-pornhub-rss-feed-detail")
+    @Scheduled(cron = "0 10 02 * * ?", identity = "daily-pornhub-rss-feed-detail")
     void updatePornHubFromRRSDetail() {
         var status = new NodeJSProcess(workspace + "\\crawler\\pornhub\\DetailPornHub.js").start();
         log.info("Process done" + status);

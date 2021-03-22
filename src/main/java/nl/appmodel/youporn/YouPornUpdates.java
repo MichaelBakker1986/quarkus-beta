@@ -151,9 +151,9 @@ public class YouPornUpdates implements Update {
     private void batchPersist() {
         if (sqlStatements.isEmpty()) return;
         var sql = """
-                  INSERT INTO prosite.youporn (code,duration_ui,duration,cat,tag,header,picture_m,w,h,youporn_id,idx,actor,url,updated,status) VALUES
+                  INSERT INTO prosite.youporn (code,duration_ui,duration,cat,tag,header,picture_m,w,h,youporn_id,actor,url,updated,status) VALUES
                   %s 
-                  AS new ON DUPLICATE KEY UPDATE code=new.code, duration_ui=new.duration_ui, duration=new.duration, cat=new.cat, tag=new.tag, header=new.header, picture_m=new.picture_m, w=new.w, h=new.h, youporn_id=new.youporn_id, actor=new.actor, idx=new.idx, url=new.url, updated=new.updated, prosite.youporn.status=IF(prosite.youporn.status=2,2,1);
+                  AS new ON DUPLICATE KEY UPDATE code=new.code, duration_ui=new.duration_ui, duration=new.duration, cat=new.cat, tag=new.tag, header=new.header, picture_m=new.picture_m, w=new.w, h=new.h, youporn_id=new.youporn_id, actor=new.actor, url=new.url, updated=new.updated, prosite.youporn.status=IF(prosite.youporn.status=2,2,1);
                   """.formatted(String.join(",\n", sqlStatements));
         changes = session.createNativeQuery(sql)
                          .executeUpdate();

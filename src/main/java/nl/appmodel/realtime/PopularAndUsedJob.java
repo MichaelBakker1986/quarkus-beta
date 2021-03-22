@@ -35,10 +35,11 @@ public class PopularAndUsedJob {
                                                            SET
                                                                t.used = pt.used,
                                                                t.popularity = pt.popular,
-                                                               t.updated = prosite.currentmillis()
+                                                               t.updated = :updated
                                                            WHERE t.updated <= 0;
                                                              """
                                                         )
+                                      .setParameter("updated", System.currentTimeMillis())
                                       .setHint(
                                               "javax.persistence.lock.timeout",
                                               LockOptions.SKIP_LOCKED

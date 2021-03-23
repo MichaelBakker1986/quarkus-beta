@@ -23,19 +23,19 @@ public class UpdateTags {
         var executionUpdateTime = System.currentTimeMillis();
         for (Network network : Network.values()) {
             val updates = session.createNativeQuery("""
-                                                    UPDATE %s x set x.ref = UUID_SHORT(),x.updated = -:updated where x.pro_id IS NULL AND x.ref IS NULL
+                                                    UPDATE %s x set x.ref = UUID_SHORT(),x.updated = :updated where x.pro_id IS NULL AND x.ref IS NULL
                                                         """.formatted(network.tableName())
-                                                   ).setParameter("updated", executionUpdateTime)
+                                                   ).setParameter("updated", -executionUpdateTime)
                                  .executeUpdate();
 
             val changes = session.createNativeQuery("""
                                                     INSERT INTO prosite.pro (id, thumbs, downloaded, views, tag_set, header, embed, w, h, status, duration,ref,updated) 
-                                                    (SELECT null,%s,n.status=2,IFNULL(n.views,-1),%s,header,%s,%s,%s,1,IFNULL(n.duration,-1),ref,-:updated From %s n where n.pro_id IS NULL AND n.ref IS NOT NULL)
+                                                    (SELECT null,%s,n.status=2,IFNULL(n.views,-1),%s,header,%s,%s,%s,1,IFNULL(n.duration,-1),ref,:updated From %s n where n.pro_id IS NULL AND n.ref IS NOT NULL)
                                                     """.formatted(network.getThumb_col(), network.getTagSetJoiner(), network.getCode(),
                                                                   network.getW(), network.getH(),
                                                                   network.tableName())
                                                    )
-                                 .setParameter("updated", executionUpdateTime)
+                                 .setParameter("updated", -executionUpdateTime)
                                  .executeUpdate();
             val pro_id = session.createNativeQuery("""
                                                    UPDATE %s x
@@ -64,6 +64,7 @@ public class UpdateTags {
                                                  Synchronizing script new PRO entities into tags\s
                                                  and pro_tags combinations
                                                 */
+                                                SET @current_millis = prosite.currentmillis();
                                                 DROP   TABLE IF EXISTS tmp_tags;
                                                 CREATE   TABLE tmp_tags(id int PRIMARY KEY, idx VARCHAR(64) ,popularity bigint, index (idx) VISIBLE, index (popularity) VISIBLE) ENGINE=MEMORY
                                                 SELECT  t.id,t.idx,t.popularity from prosite.tags t;
@@ -119,7 +120,7 @@ public class UpdateTags {
                                                         REGEXP_SUBSTR(mtt.idx, '[a-z0-9]{6}') short_6,
                                                         REGEXP_SUBSTR(mtt.idx, '[a-z0-9]{7}') short_7,
                                                         mtt.idx as idx,
-                                                        -prosite.currentmillis() as updated        
+                                                        -@current_millis as updated        
                                                 from my_tmp_table mtt
                                                 LEFT JOIN tmp_tags tt
                                                 ON tt.idx = mtt.idx
@@ -158,7 +159,7 @@ public class UpdateTags {
                                                 */
                                                 UPDATE prosite.tags t INNER JOIN tmp_pro_tags tpt
                                                 ON t.id = tpt.tag 
-                                                SET t.updated = -prosite.currentmillis();
+                                                SET t.updated = -@current_millis;
                                                 /*                      
                                                  Update visited records to next stage
                                                 */
@@ -166,7 +167,7 @@ public class UpdateTags {
                                                 ON p.id= tmp_pro.pro_id
                                                 SET 
                                                     p.status = IF(downloaded, 2, 3),
-                                                    p.updated = prosite.currentmillis();
+                                                    p.updated = @current_millis;
                                                                                    
                                                 DROP TABLE IF EXISTS tmp_tags;
                                                 DROP TABLE IF EXISTS tmp_pro;

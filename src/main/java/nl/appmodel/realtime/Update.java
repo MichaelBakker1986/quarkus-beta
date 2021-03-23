@@ -2,7 +2,10 @@ package nl.appmodel.realtime;
 
 import com.opencsv.CSVParserBuilder;
 import com.opencsv.CSVReaderBuilder;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 import lombok.SneakyThrows;
+import lombok.val;
 import org.hibernate.Session;
 import java.awt.TrayIcon.MessageType;
 import java.io.Reader;
@@ -11,24 +14,14 @@ import java.net.URL;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.function.Consumer;
+import java.util.logging.Logger;
+import java.util.regex.MatchResult;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 public interface Update {
+    Logger   LOG          = Logger.getLogger(String.valueOf(Update.class));
     Notifier notifier     = new Notifier();
     Long     MILLS_IN_DAY = 86400000L;
-    default String escape(String in) {
-        if (in == null) return "";
-        return in
-                .replaceAll("[{\\[]", "(")
-                .replaceAll("[}\\]]", ")")
-                .replaceAll(";", ",")
-                .replaceAll("\"", "'");
-    }
-    default boolean isNumeric(String str) {
-        // null or empty
-        if (str == null || str.length() == 0) {
-            return false;
-        }
-        return str.chars().allMatch(Character::isDigit);
-    }
     @SneakyThrows
     default void readSourceFile(char sep, Reader in_reader, Consumer<String[]> consumer) {
         var csvReaderBuilder = new CSVReaderBuilder(in_reader)
@@ -76,5 +69,57 @@ public interface Update {
                                  "No changes since [" + lastModified + "] size:[" + headerFieldSize + "]",
                                  MessageType.INFO);
         }
+    }
+    @AllArgsConstructor
+    @Getter
+    class Dim {
+        int w, h;
+        String src;
+    }
+    default Dim dims(String code) {
+        var matches = Pattern.compile("(\\S+)=[\"']?((?:.(?![\"']?\\s+(?:\\S+)=|\\s*\\/?[>\"']))+.)[\"']?")
+                             .matcher(code)
+                             .results()
+                             .map(MatchResult::group)
+                             .collect(Collectors.toMap(o -> trim(o.split("=")[0]).toLowerCase(), o -> escape(trim(o.split("=")[1]))));
+
+        int w   = parseInt(matches.get("width"));
+        int h   = parseInt(matches.get("height"));
+        val src = matches.get("height");
+        return new Dim(w, h, src);
+    }
+    default String trim(String s) {
+        return s.replaceAll("^[\"' ]+|[\"' ]+$", "");
+    }
+    static void main(String[] args) {
+        //  var dims = new Update() {}.dims("testabsd width='100' height=100");
+        var upd = new Update() {};
+        var matches = Pattern.compile("(\\S+)=[\"']?((?:.(?![\"']?\\s+(?:\\S+)=|\\s*\\/?[>\"']))+.)[\"']?")
+                             .matcher("testabsd async width='100' height=100 src=\"213more\"")
+                             .results()
+                             .map(MatchResult::group)
+                             .collect(Collectors.toMap(o -> o.split("=")[0],
+                                                       o -> upd.escape(o.split("=")[1].replaceAll("^[\"' ]+|[\"' ]+$", ""))));
+
+        System.out.println(matches.entrySet());
+    }
+    default int parseInt(String number) {
+        if (number == null) return -1;
+        return Integer.parseInt(number.replaceAll("[^0-9]", ""));
+    }
+    default String escape(String in) {
+        if (in == null) return "";
+        return in
+                .replaceAll("[{\\[]", "(")
+                .replaceAll("[}\\]]", ")")
+                .replaceAll(";", ",")
+                .replaceAll("\"", "'");
+    }
+    default boolean isNumeric(String str) {
+        // null or empty
+        if (str == null || str.length() == 0) {
+            return false;
+        }
+        return str.chars().allMatch(Character::isDigit);
     }
 }

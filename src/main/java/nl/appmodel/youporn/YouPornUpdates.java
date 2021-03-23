@@ -1,5 +1,6 @@
 package nl.appmodel.youporn;
 
+import com.google.common.base.Joiner;
 import io.quarkus.scheduler.Scheduled;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -7,14 +8,11 @@ import lombok.val;
 import nl.appmodel.realtime.HibernateUtil;
 import nl.appmodel.realtime.Update;
 import org.hibernate.Session;
-import org.w3c.dom.Document;
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
 import javax.transaction.Transactional;
-import javax.xml.parsers.DocumentBuilderFactory;
 import java.awt.TrayIcon.MessageType;
 import java.io.BufferedInputStream;
-import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.StringReader;
 import java.net.URL;
@@ -95,8 +93,7 @@ public class YouPornUpdates implements Update {
             //we will only use the first entry
             var ze = zis.getNextEntry();
             //sure this will be only one file..
-            log.info("File: {} Size: {} Last Modified {}", ze.getName(), ze.getSize(),
-                     LocalDate.ofEpochDay(ze.getTime() / MILLS_IN_DAY));
+            log.info("File: {} Size: {} Last Modified {}", ze.getName(), ze.getSize(), LocalDate.ofEpochDay(ze.getTime() / MILLS_IN_DAY));
             var skipped = 0L;
             if (ze.getSize() > nBytesOffset) {
                 totalLength = ze.getSize();
@@ -116,35 +113,28 @@ public class YouPornUpdates implements Update {
     }
     @SneakyThrows
     public void parseEntry(String[] strings) {
-        var iframe      = strings[0].substring(0, strings[0].indexOf("/iframe") + 8);
-        val code        = escape(iframe);
-        val picture_m   = escape(strings[1]);
-        val header      = escape(strings[2]);
-        val tags        = escape(strings[3]);
-        val cat         = escape(strings[4]);
-        val duration_ui = escape(strings[6]);
-        int duration    = Integer.parseInt(strings[7]);
-        val url         = escape(strings[8]);
-        val youporn_id  = Long.parseLong(strings[9]);
-
-        int w = -1;
-        int h = -1;
         try {
-            var      dbf      = DocumentBuilderFactory.newInstance();
-            var      db       = dbf.newDocumentBuilder();
-            Document doc      = db.parse(new ByteArrayInputStream(iframe.getBytes()));
-            var      document = doc.getDocumentElement();
-            document.normalize();
-            w = Integer.parseInt(document.getAttribute("height"));
-            h = Integer.parseInt(document.getAttribute("width"));
+            var iframe      = strings[0].substring(0, strings[0].indexOf("/iframe") + 8);
+            val code        = escape(iframe);
+            val picture_m   = escape(strings[1]);
+            val header      = escape(strings[2]);
+            val tags        = escape(strings[3]);
+            val cat         = escape(strings[4]);
+            val duration_ui = escape(strings[6]);
+            int duration    = Integer.parseInt(strings[7]);
+            val url         = escape(strings[8]);
+            val youporn_id  = Long.parseLong(strings[9]);
+
+            var dims  = dims(iframe);
             var actor = "";
             if (!strings[5].isEmpty()) {
                 actor = escape(strings[5]);
             }
             sqlStatements.add(
-                    "(\"" + code + "\",\"" + duration_ui + "\"," + duration + ",\"" + cat + "\",\"" + tags + "\",\"" + header + "\",\"" + picture_m + "\"," + w + "," + h + "," + youporn_id + ",\"" + actor + "\",\"" + url + "\"," + update_time + ",1)");
+                    "(\"" + code + "\",\"" + duration_ui + "\"," + duration + ",\"" + cat + "\",\"" + tags + "\",\"" + header + "\",\"" + picture_m + "\"," + dims
+                            .getW() + "," + dims.getH() + "," + youporn_id + ",\"" + actor + "\",\"" + url + "\"," + update_time + ",1)");
         } catch (Exception e) {
-            log.warn("Failed to parse [{}] because [{}]", iframe, e.getMessage());
+            log.warn("Failed to parse [{}] because [{}]", Joiner.on("\n").join(strings), e.getMessage());
         }
     }
     @SneakyThrows

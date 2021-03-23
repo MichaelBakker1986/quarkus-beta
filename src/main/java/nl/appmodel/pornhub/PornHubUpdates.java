@@ -10,10 +10,8 @@ import org.hibernate.Session;
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
 import javax.transaction.Transactional;
-import javax.xml.parsers.DocumentBuilderFactory;
 import java.awt.TrayIcon.MessageType;
 import java.io.BufferedInputStream;
-import java.io.ByteArrayInputStream;
 import java.io.StringReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -29,7 +27,6 @@ import java.util.zip.ZipInputStream;
 @ApplicationScoped
 public class PornHubUpdates implements Update {
     private static final Logger       LOG           = Logger.getLogger(String.valueOf(PornHubUpdates.class));
-    private final static Long         MILLS_IN_DAY  = 86400000L;
     private              long         nBytesOffset  = 0;
     private              int          changes       = 0;
     private              long         update_time   = new Date().getTime();
@@ -109,11 +106,8 @@ public class PornHubUpdates implements Update {
     public void pornhubVideos() {
         try (var bis = new BufferedInputStream(url.openStream());
              var zis = new ZipInputStream(bis)) {
-            //we will only use the first entry
             var ze = zis.getNextEntry();
-            //sure this will be only one file..
-            log.info("File: {} Size: {} Last Modified {}", ze.getName(), ze.getSize(),
-                     LocalDate.ofEpochDay(ze.getTime() / MILLS_IN_DAY));
+            log.info("File: {} Size: {} Last Modified {}", ze.getName(), ze.getSize(), LocalDate.ofEpochDay(ze.getTime() / MILLS_IN_DAY));
             var skipped = 0L;
             if (ze.getSize() > nBytesOffset) {
                 totalLength = ze.getSize();
@@ -131,8 +125,6 @@ public class PornHubUpdates implements Update {
     }
     @SneakyThrows
     private void readPornhubSourceFileEntry(String[] strings) {
-        var  dbf        = DocumentBuilderFactory.newInstance();
-        var  db         = dbf.newDocumentBuilder();
         val  picture_d  = escape(strings[1]);
         val  preview_d  = escape(strings[2]);
         val  pornhub_id = picture_d.split("/")[6];
@@ -142,18 +134,14 @@ public class PornHubUpdates implements Update {
         val  cat        = escape(strings[5]);
         int  duration   = Integer.parseInt(strings[7]);
         long views      = Long.parseLong(strings[8]);
-        val  doc        = db.parse(new ByteArrayInputStream(iframe.getBytes()));
-        var  document   = doc.getDocumentElement();
-        document.normalize();
-        val w     = document.getAttribute("height");
-        val h     = document.getAttribute("width");
-        val src   = document.getAttribute("src");
-        val keyId = escape(src.split("/")[4]);
+        var  dims       = dims(strings[0]);
+        val  keyId      = escape(dims.getSrc().split("/")[4]);
         if (!isNumeric(pornhub_id)) {
             log.info("Not updating: [{}]", String.join(" ", strings));
         } else {
             sqlStatements.add(
-                    "(" + views + "," + duration + ",'" + cat + "',\"" + tags + "\",\"" + header + "\",\"" + picture_d + "\",\"" + preview_d + "\"," + w + "," + h + "," + pornhub_id + ",'" + keyId + "'," + update_time + ",1)");
+                    "(" + views + "," + duration + ",'" + cat + "',\"" + tags + "\",\"" + header + "\",\"" + picture_d + "\",\"" + preview_d + "\"," + dims
+                            .getW() + "," + dims.getH() + "," + pornhub_id + ",'" + keyId + "'," + update_time + ",1)");
         }
     }
     @SneakyThrows

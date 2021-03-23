@@ -26,8 +26,8 @@ public class Xtube {
     @Column String header;
     @Column String tag;
     @Column String tag2;
-    @Column String c9;
-    @Column String c10;
+    @Column String actor;
+    @Column String amateur;
     @Column String cat;
     @Column long   duration;
     @Column long   views;

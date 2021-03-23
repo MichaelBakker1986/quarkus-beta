@@ -7,9 +7,11 @@ import lombok.val;
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.TrayIcon.MessageType;
+import java.util.logging.Logger;
 @Slf4j
 @Startup
 public class Notifier {
+    private static final Logger LOG = Logger.getLogger(String.valueOf(Notifier.class));
     public static void main(String[] args) {
         if (SystemTray.isSupported()) {
             new Notifier().displayTray("Demo", "App start", MessageType.WARNING);
@@ -26,6 +28,7 @@ public class Notifier {
         var trayIcon = new TrayIcon(image, message, menu);
         trayIcon.setImageAutoSize(true);
         tray.add(trayIcon);
+        LOG.info(title);
         trayIcon.displayMessage(title, message, type);
     }
 }

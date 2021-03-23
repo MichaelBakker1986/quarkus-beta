@@ -22,14 +22,11 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.logging.Logger;
-import java.util.regex.MatchResult;
-import java.util.regex.Pattern;
 import java.util.zip.ZipInputStream;
 @Slf4j
 @ApplicationScoped
 public class XVideoUpdates implements Update {
     private static final Logger       LOG           = Logger.getLogger(String.valueOf(XVideoUpdates.class));
-    private final static Long         MILLS_IN_DAY  = 86400000L;
     private              int          changes       = 0;
     private              long         update_time   = new Date().getTime();
     private final        List<String> sqlStatements = new ArrayList<>();
@@ -40,14 +37,6 @@ public class XVideoUpdates implements Update {
     Session session;
     @SneakyThrows
     public static void main(String[] args) {
-
-        String[] matches = Pattern.compile("(:?width|height)=([0-9]+)")
-                                  .matcher(
-                                          "<iframe src=\"https://www.xvideos.com/embedframe/61751651\" frameborder=0 width=510 height=400 scrolling=no allowfullscreen=allowfullscreen></iframe>;")
-                                  .results()
-                                  .map(MatchResult::group)
-                                  .toArray(String[]::new);
-
         var pornHubUpdates = new XVideoUpdates();
         pornHubUpdates.url = new URL(zip_url);
         //   var url = new File("C:\\Users\\michael\\Documents\\Downloads\\pornhub.com-db.zip").toURI().toURL();
@@ -143,19 +132,12 @@ public class XVideoUpdates implements Update {
         val actor       = escape(strings[6]);
         val embed_id    = escape(strings[7]);
         val cat         = escape(strings[8]);
-
-        String[] matches = Pattern.compile("(width|height)=([0-9]+)")
-                                  .matcher(code)
-                                  .results()
-                                  .map(MatchResult::group)
-                                  .toArray(String[]::new);
-
-        val w        = Integer.parseInt(matches[0].split("=")[1]);
-        val h        = Integer.parseInt(matches[1].split("=")[1]);
-        val duration = Integer.parseInt(duration_ui.replaceAll("[^0-9]", ""));
+        val dim         = dims(code);
+        val duration    = parseInt(duration_ui);
         sqlStatements.add(
                 "(\"" + escape(
-                        code) + "\",\"" + url + "\",\"" + duration_ui + "\"," + duration + ",\"" + cat + "\",\"" + tags + "\",\"" + header + "\",\"" + picture_m + "\"," + w + "," + h + ",\"" + actor + "\"," + embed_id + "," + update_time + ",1)");
+                        code) + "\",\"" + url + "\",\"" + duration_ui + "\"," + duration + ",\"" + cat + "\",\"" + tags + "\",\"" + header + "\",\"" + picture_m + "\"," + dim
+                        .getW() + "," + dim.getH() + ",\"" + actor + "\"," + embed_id + "," + update_time + ",1)");
     }
     @SneakyThrows
     private void batchPersist() {

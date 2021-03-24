@@ -85,7 +85,7 @@ public interface Update {
 
         val w   = sqlNumber(matches.get("width"));
         val h   = sqlNumber(matches.get("height"));
-        val src = matches.get("height");
+        val src = matches.get("src");
         return new Dim(w, h, src);
     }
     default String trim(String s) {

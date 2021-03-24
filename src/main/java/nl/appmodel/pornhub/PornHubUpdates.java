@@ -128,7 +128,6 @@ public class PornHubUpdates implements Update {
         val  picture_d  = escape(strings[1]);
         val  preview_d  = escape(strings[2]);
         val  pornhub_id = picture_d.split("/")[6];
-        val  iframe     = escape(strings[0]);
         val  header     = escape(strings[3]);
         val  tags       = escape(strings[4]);
         val  cat        = escape(strings[5]);

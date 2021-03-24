@@ -46,6 +46,7 @@ public class DownloadedVideosJob {
         //this.insertRowsToProTable();
         this.updateVideosJob();
     }
+
     @SneakyThrows
     public static void main(String[] args) {
         var job = new DownloadedVideosJob();

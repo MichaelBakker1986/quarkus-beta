@@ -43,11 +43,11 @@ public class UpdateDetails {
                                                                           duration=IFNULL(n.duration,-1),
                                                                           ref=null,
                                                                           updated=:updated
-                                                    """.formatted(network.getThumb_col(), network.getTagSetJoiner(), network.getCode(),
+                                                    """.formatted(network.getThumb_col(), network.getTag_set_new(), network.getCode_new(),
                                                                   network.getW(), network.getH(),
                                                                   network.tableName(),
                                                                   network.getThumb_col(),
-                                                                  network.getTagSetJoinerNew(),
+                                                                  network.getTag_set_new(),
                                                                   network.getCode_new(),
                                                                   network.getW_new(),
                                                                   network.getH_new()

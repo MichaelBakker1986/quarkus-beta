@@ -127,16 +127,18 @@ public class XVideoUpdates implements Update {
         val header      = escape(strings[1]);
         val duration_ui = escape(strings[2]);
         val picture_m   = escape(strings[3]);
-        val code        = strings[4];
+        val dim         = dims(strings[4]);
+        val code        = escape(strings[4]);
         val tags        = escape(strings[5]);
         val actor       = escape(strings[6]);
         val embed_id    = escape(strings[7]);
         val cat         = escape(strings[8]);
-        val dim         = dims(code);
-        val duration    = parseInt(duration_ui);
+        val duration    = sqlNumber(duration_ui);
+        val args = new Object[]{
+
+        };
         sqlStatements.add(
-                "(\"" + escape(
-                        code) + "\",\"" + url + "\",\"" + duration_ui + "\"," + duration + ",\"" + cat + "\",\"" + tags + "\",\"" + header + "\",\"" + picture_m + "\"," + dim
+                "(\"" + code + "\",\"" + url + "\",\"" + duration_ui + "\"," + duration + ",\"" + cat + "\",\"" + tags + "\",\"" + header + "\",\"" + picture_m + "\"," + dim
                         .getW() + "," + dim.getH() + ",\"" + actor + "\"," + embed_id + "," + update_time + ",1)");
     }
     @SneakyThrows

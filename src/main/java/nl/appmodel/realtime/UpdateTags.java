@@ -31,7 +31,7 @@ public class UpdateTags {
             val changes = session.createNativeQuery("""
                                                     INSERT INTO prosite.pro (id, thumbs, downloaded, views, tag_set, header, embed, w, h, status, duration,ref,updated) 
                                                     (SELECT null,%s,n.status=2,IFNULL(n.views,-1),%s,header,%s,%s,%s,1,IFNULL(n.duration,-1),ref,:updated From %s n where n.pro_id IS NULL AND n.ref IS NOT NULL)
-                                                    """.formatted(network.getThumb_col(), network.getTagSetJoiner(), network.getCode(),
+                                                    """.formatted(network.getThumb_col(), network.getTag_set_new(), network.getCode_new(),
                                                                   network.getW(), network.getH(),
                                                                   network.tableName())
                                                    )

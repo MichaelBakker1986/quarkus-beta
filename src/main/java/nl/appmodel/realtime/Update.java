@@ -73,7 +73,7 @@ public interface Update {
     @AllArgsConstructor
     @Getter
     class Dim {
-        int w, h;
+        long w, h;
         String src;
     }
     default Dim dims(String code) {
@@ -83,8 +83,8 @@ public interface Update {
                              .map(MatchResult::group)
                              .collect(Collectors.toMap(o -> trim(o.split("=")[0]).toLowerCase(), o -> escape(trim(o.split("=")[1]))));
 
-        int w   = parseInt(matches.get("width"));
-        int h   = parseInt(matches.get("height"));
+        val w   = sqlNumber(matches.get("width"));
+        val h   = sqlNumber(matches.get("height"));
         val src = matches.get("height");
         return new Dim(w, h, src);
     }
@@ -103,9 +103,9 @@ public interface Update {
 
         System.out.println(matches.entrySet());
     }
-    default int parseInt(String number) {
+    default long sqlNumber(String number) {
         if (number == null) return -1;
-        return Integer.parseInt(number.replaceAll("[^0-9]", ""));
+        return Long.parseLong(number.replaceAll("[^0-9]", ""));
     }
     default String escape(String in) {
         if (in == null) return "";

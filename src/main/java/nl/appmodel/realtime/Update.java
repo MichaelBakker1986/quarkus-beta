@@ -32,10 +32,11 @@ public interface Update {
                                 .withSeparator(sep)
                                 .withStrictQuotes(false)
                                 .build()).build();
-
-        csvReaderBuilder
-                .iterator()
-                .forEachRemaining(consumer);
+        var iterator = csvReaderBuilder
+                .iterator();
+        while (iterator.hasNext()) {
+            consumer.accept(iterator.next());
+        }
     }
     @SneakyThrows
     default void preflight(Session session, Consumer<Long> runnable, URL url) {
@@ -104,7 +105,7 @@ public interface Update {
         System.out.println(matches.entrySet());
     }
     default long sqlNumber(String number) {
-        if (number == null) return -1;
+        if (number == null || number.isBlank()) return -1;
         return Long.parseLong(number.replaceAll("[^0-9]", ""));
     }
     default String escape(String in) {

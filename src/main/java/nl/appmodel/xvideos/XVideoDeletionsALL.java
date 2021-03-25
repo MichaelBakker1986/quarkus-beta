@@ -1,6 +1,5 @@
 package nl.appmodel.xvideos;
 
-import io.quarkus.scheduler.Scheduled;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
@@ -111,24 +110,19 @@ public class XVideoDeletionsALL implements Update {
             asSet.removeAll(subset);
             if (!subset.isEmpty()) {
                 var sql = """
-                          UPDATE prosite.xvideos SET
-                          status = 9,
-                          updated = %s
-                          WHERE embed_id IN (%s)
-                          """.formatted(updated, String.join(",", subset));
+                          UPDATE prosite.xvideos x, prosite.pro p 
+                          SET
+                          x.status = 9,
+                          x.updated = :updated,
+                          p.status=9,
+                          p.updated = :updated
+                          WHERE  x.pro_id = p.id
+                          AND embed_id IN (%s)
+                          """.formatted(String.join(",", subset));
                 changes += session.createNativeQuery(sql)
+                                  .setParameter("updated", updated)
                                   .executeUpdate();
             }
         }
-        var pro_sql_update = """
-                             UPDATE prosite.pro p
-                             INNER JOIN prosite.xvideos x ON x.pro_id = p.id  
-                             SET p.status = 9,
-                                 p.updated =  :updated
-                             WHERE x.updated = :updated
-                             """;
-        changes += session.createNativeQuery(pro_sql_update)
-                          .setParameter("updated", updated)
-                          .executeUpdate();
     }
 }

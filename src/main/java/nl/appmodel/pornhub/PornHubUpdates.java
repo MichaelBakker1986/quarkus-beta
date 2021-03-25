@@ -67,7 +67,7 @@ public class PornHubUpdates implements Update {
                                               .toEpochMilli();
         connection.getInputStream().close();
         if (headerModifiedUTC != cachedLastModified) {
-            pornhubVideosOffset(content_length);
+            pornhubVideosOffset(content_length, this::pornhubVideos);
             session.createNativeQuery(
                     "REPLACE INTO prosite.cursors VALUES ('pornhub_videos_file_last_modified',:pornhub_videos_file_last_modified)")
                    .setParameter(
@@ -77,26 +77,30 @@ public class PornHubUpdates implements Update {
                                  MessageType.INFO);
         }
     }
-    public void pornhubVideosOffset(long content_length) {
+    public void pornhubVideosOffset(long content_length, Runnable runnable) {
         try {
             update_time = new Date().getTime();
             sqlStatements.clear();
-            changes      = 0;
+            changes = 0;
+            var cursor_name = getClass().getSimpleName().toLowerCase() + "_cursor";
             nBytesOffset = Long.parseLong(String.valueOf(
                     session.createNativeQuery(
-                            "SELECT IFNULL((SELECT value from prosite.cursors c where c.name='pornhub_videos_file_cursor'),10930072417)")
+                            "SELECT IFNULL((SELECT value from prosite.cursors c where c.name=:cursor_name),10930072417)")
+                           .setParameter("cursor_name", cursor_name)
                            .getSingleResult()));
-            pornhubVideos();
+            runnable.run();
             batchPersist();
             if (totalLength > nBytesOffset)
-                session.createNativeQuery("REPLACE INTO prosite.cursors VALUES ('pornhub_videos_file_cursor',:totalLength)").setParameter(
-                        "totalLength", String.valueOf(totalLength)).executeUpdate();
-            notifier.displayTray("Success - Pornhub", "changes [" + changes + "] offset [" + nBytesOffset + "] total [" + totalLength + "]",
+                session.createNativeQuery("REPLACE INTO prosite.cursors VALUES (:cursor_name,:totalLength)")
+                       .setParameter("totalLength", String.valueOf(totalLength))
+                       .setParameter("cursor_name", cursor_name)
+                       .executeUpdate();
+            notifier.displayTray("Success - " + getClass().getSimpleName(),
+                                 "changes [" + changes + "] offset [" + nBytesOffset + "] total [" + totalLength + "]",
                                  MessageType.INFO);
         } catch (Exception e) {
-            e.printStackTrace();
             log.error("ERROR", e);
-            notifier.displayTray("Fail - Pornhub - updates", e.getMessage(), MessageType.ERROR);
+            notifier.displayTray("Fail - " + getClass().getSimpleName(), e.getMessage(), MessageType.ERROR);
         } finally {
             sqlStatements.clear();
             changes = 0;
@@ -125,21 +129,23 @@ public class PornHubUpdates implements Update {
     }
     @SneakyThrows
     private void readPornhubSourceFileEntry(String[] strings) {
-        val  picture_d  = escape(strings[1]);
-        val  preview_d  = escape(strings[2]);
-        val  pornhub_id = picture_d.split("/")[6];
-        val  header     = escape(strings[3]);
-        val  tags       = escape(strings[4]);
-        val  cat        = escape(strings[5]);
-        int  duration   = Integer.parseInt(strings[7]);
-        long views      = Long.parseLong(strings[8]);
-        var  dims       = dims(strings[0]);
-        val  keyId      = escape(dims.getSrc().split("/")[4]);
+        val picture_d  = escape(strings[1]);
+        val preview_d  = escape(strings[2]);
+        val pornhub_id = picture_d.split("/")[6];
+        val header     = escape(strings[3]);
+        val tags       = escape(strings[4]);
+        val cat        = escape(strings[5]);
+        val duration   = sqlNumber(strings[7]);
+        val views      = sqlNumber(strings[8]);
+        val up         = sqlNumber(strings[9]);
+        val down       = sqlNumber(strings[10]);
+        var dims       = dims(strings[0]);
+        val keyId      = escape(dims.getSrc().split("/")[4]);
         if (!isNumeric(pornhub_id)) {
             log.info("Not updating: [{}]", String.join(" ", strings));
         } else {
             sqlStatements.add(
-                    "(" + views + "," + duration + ",'" + cat + "',\"" + tags + "\",\"" + header + "\",\"" + picture_d + "\",\"" + preview_d + "\"," + dims
+                    "(" + up + "," + down + "," + views + "," + duration + ",'" + cat + "',\"" + tags + "\",\"" + header + "\",\"" + picture_d + "\",\"" + preview_d + "\"," + dims
                             .getW() + "," + dims.getH() + "," + pornhub_id + ",'" + keyId + "'," + update_time + ",1)");
         }
     }
@@ -147,9 +153,10 @@ public class PornHubUpdates implements Update {
     private void batchPersist() {
         if (sqlStatements.isEmpty()) return;
         var sql = """
-                  INSERT INTO prosite.pornhub (views,duration,cat,tag,header,picture_d,preview_d,w,h,pornhub_id,keyid,updated,status) VALUES
-                  %s 
-                  AS new ON DUPLICATE KEY UPDATE views=new.views, duration=new.duration, cat=new.cat, tag=new.tag, header=new.header, picture_d=new.picture_d, preview_d=new.preview_d, w=new.w, h=new.h, pornhub_id=new.pornhub_id, updated=new.updated, prosite.pornhub.status=IF(prosite.pornhub.status=2,2,1);
+                  INSERT INTO prosite.pornhub (up,down,views,duration,cat,tag,header,picture_d,preview_d,w,h,pornhub_id,keyid,updated,status) VALUES
+                  %s  
+                  AS new ON DUPLICATE KEY UPDATE up=new.up,down=new.down,views=new.views, duration=new.duration, cat=new.cat, tag=new.tag, header=new.header, picture_d=new.picture_d, preview_d=new.preview_d, w=new.w, h=new.h, pornhub_id=new.pornhub_id, updated=new.updated, 
+                  prosite.pornhub.status=IF(prosite.pornhub.preview_d != new.preview_d,5,  IF (prosite.pornhub.tag != new.tag OR prosite.pornhub.cat != new.cat OR prosite.pornhub.views != new.views,IF(prosite.pornhub.status=2 OR prosite.pornhub.status=4,4,prosite.pornhub.status)));
                   """.formatted(String.join(",\n", sqlStatements));
         changes = session.createNativeQuery(sql)
                          .executeUpdate();

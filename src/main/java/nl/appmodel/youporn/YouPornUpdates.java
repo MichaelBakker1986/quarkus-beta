@@ -104,7 +104,9 @@ public class YouPornUpdates implements Update {
                 var remainder  = new String(zis.readAllBytes());
                 var first_lb   = remainder.indexOf('\n');
                 var usefulPart = remainder.substring(first_lb + 1);
-                readSourceFile(sep, new StringReader(usefulPart), this::parseEntry);
+                try (var read = new StringReader(usefulPart)) {
+                    readSourceFile(sep, read, this::parseEntry);
+                }
             } else {
                 log.info("No new data found");
             }

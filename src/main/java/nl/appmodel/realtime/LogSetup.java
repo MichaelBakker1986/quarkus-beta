@@ -1,18 +1,7 @@
 package nl.appmodel.realtime;
 
-import ch.qos.logback.classic.Level;
-import ch.qos.logback.classic.Logger;
-import ch.qos.logback.classic.PatternLayout;
-import ch.qos.logback.classic.encoder.PatternLayoutEncoder;
-import ch.qos.logback.classic.spi.ILoggingEvent;
-import ch.qos.logback.core.ConsoleAppender;
-import ch.qos.logback.core.Context;
-import ch.qos.logback.core.FileAppender;
-import org.hibernate.cfg.Environment;
-import org.slf4j.LoggerFactory;
-import java.io.File;
 public interface LogSetup {
-    //@formatter:off
+    /*//@formatter:off
      Object[][] LEVELS = {
             { 
              Environment.class,Level.WARN
@@ -59,5 +48,5 @@ public interface LogSetup {
         fileAppender.setContext(lc);
         fileAppender.start();
         return fileAppender;
-    }
+    }*/
 }

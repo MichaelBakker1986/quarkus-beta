@@ -2,6 +2,7 @@ package nl.appmodel.realtime;
 
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
+import nl.appmodel.PornHub;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.cfg.Configuration;
@@ -32,6 +33,7 @@ public class HibernateUtil {
         properties.put(Environment.JPA_LOCK_TIMEOUT, 3600);
 
         return new Configuration()
+                .addAnnotatedClass(PornHub.class)
                 .setProperties(properties)
                 .buildSessionFactory().getCurrentSession();
     }
@@ -49,6 +51,7 @@ public class HibernateUtil {
         properties.put(Environment.JPA_LOCK_TIMEOUT, 3600);
 
         return new Configuration()
+                .addAnnotatedClass(PornHub.class)
                 .setProperties(properties)
                 .buildSessionFactory();
     }

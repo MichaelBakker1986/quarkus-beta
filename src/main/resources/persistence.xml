@@ -6,6 +6,7 @@
 >
     <persistence-unit name="quarkus-realtime">
         <class>nl.appmodel.Xtube</class>
+        <class>nl.appmodel.PornHub</class>
 
         <!--
         <jar-file>hibernate-and-jpa-entities.jar</jar-file>

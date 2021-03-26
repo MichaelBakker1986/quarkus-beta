@@ -2,6 +2,7 @@ package nl.appmodel.realtime;
 
 import com.opencsv.CSVParserBuilder;
 import com.opencsv.CSVReaderBuilder;
+import com.opencsv.enums.CSVReaderNullFieldIndicator;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.SneakyThrows;
@@ -26,8 +27,10 @@ public interface Update {
     default void readSourceFile(char sep, Reader in_reader, Consumer<String[]> consumer) {
         var csvReaderBuilder = new CSVReaderBuilder(in_reader)
                 .withKeepCarriageReturn(true)
+                .withFieldAsNull(CSVReaderNullFieldIndicator.EMPTY_SEPARATORS)
                 .withCSVParser(
                         new CSVParserBuilder()
+                                .withEscapeChar((char) 0)
                                 .withIgnoreQuotations(true)
                                 .withSeparator(sep)
                                 .withStrictQuotes(false)
@@ -108,13 +111,21 @@ public interface Update {
         if (number == null || number.isBlank()) return -1;
         return Long.parseLong(number.replaceAll("[^0-9]", ""));
     }
+    default String escapeStrict(String in) {
+        if (in == null) return "";
+        return in
+                .replaceAll("[\\\\{\\[]", "(")
+                .replaceAll("[/}\\]]", ")")
+                .replaceAll("[;:?]", ",")
+                .replaceAll("[\"`]", "'");
+    }
     default String escape(String in) {
         if (in == null) return "";
         return in
                 .replaceAll("[{\\[]", "(")
                 .replaceAll("[}\\]]", ")")
-                .replaceAll(";", ",")
-                .replaceAll("\"", "'");
+                .replaceAll("[;]", ",")
+                .replaceAll("[\"`]", "'");
     }
     default boolean isNumeric(String str) {
         // null or empty
@@ -122,5 +133,20 @@ public interface Update {
             return false;
         }
         return str.chars().allMatch(Character::isDigit);
+    }
+    interface Sneak<T> {
+        default T with() {
+            try {
+                return call();
+            } catch (Exception e) {
+                e.printStackTrace();
+                throw new RuntimeException();
+            }
+        }
+        T call() throws Exception;
+    }
+    @SneakyThrows
+    static <T> T sneak(Sneak<T> t) {
+        return t.with();
     }
 }

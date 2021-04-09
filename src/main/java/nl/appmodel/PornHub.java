@@ -7,13 +7,13 @@ import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import javax.persistence.*;
 @Entity
-@Table(name = "pornhub", schema = "prosite", uniqueConstraints = @UniqueConstraint(columnNames = "pornhub_id"))
+@Table(name = "pornhub", schema = "prosite", uniqueConstraints = @UniqueConstraint(columnNames = "keyid"))
 @Slf4j
 @Data
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @NoArgsConstructor
 public class PornHub {
-    @Id @GeneratedValue @Include String keyid;
-    @Include @Column             long   pornhub_id;
-    @Column                      String changes_hash;
+    @Id @Include @Column long   pornhub;
+    @Column              String keyid;
+    @Column              long   crc;
 }

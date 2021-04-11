@@ -13,6 +13,6 @@ public class DailyYouPornRSSFeed {
     @SneakyThrows
     @Scheduled(cron = "0 30 23 * * ?", identity = "daily-youporn-rss-daily-crawl-deleted")
     public void DailyCrawlDeleted() {
-        new NodeJSProcess("\\crawler\\youporn\\DailyCrawlYouporn.js").startAndLog();
+        new NodeJSProcess("\\crawler\\youporn\\DailyYouPornDeleted.js").startAndLog();
     }
 }

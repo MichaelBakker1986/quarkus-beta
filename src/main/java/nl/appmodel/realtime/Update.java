@@ -49,7 +49,7 @@ public interface Update {
     default void preflight(String param_name, Session session, Consumer<Long> runnable, URL url) {
         long cachedLastModified = Long.parseLong(String.valueOf(
                 session.createNativeQuery(
-                        "SELECT IFNULL((SELECT value from prosite.cursors c where c.name=:param_name),0)")
+                        "SELECT IFNULL((SELECT value FROM prosite.marker c WHERE c.name=:param_name),0)")
                        .setParameter("param_name", param_name)
                        .getSingleResult()));
 
@@ -64,7 +64,7 @@ public interface Update {
         if (headerModifiedUTC != cachedLastModified) {
             runnable.accept(contentLength);
             session.createNativeQuery(
-                    "REPLACE INTO prosite.cursors VALUES (:param_name,:file_last_modified)")
+                    "REPLACE INTO prosite.marker VALUES (:param_name,:file_last_modified)")
                    .setParameter("param_name", param_name)
                    .setParameter("file_last_modified", String.valueOf(headerModifiedUTC))
                    .executeUpdate();
@@ -110,6 +110,12 @@ public interface Update {
     default long sqlNumber(String number) {
         if (number == null || number.isBlank()) return -1;
         return Long.parseLong(number.replaceAll("[^0-9]", ""));
+    }
+    default int INT(Number i) {
+        return (int) Math.min(Integer.MAX_VALUE, i.longValue());
+    }
+    default String CONCAT(String... args) {
+        return String.join(",", args).replaceAll("^,|,$", "");
     }
     default String escapeStrict(String in) {
         if (in == null) return "";

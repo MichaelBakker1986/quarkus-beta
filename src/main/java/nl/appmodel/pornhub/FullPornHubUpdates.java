@@ -1,5 +1,6 @@
 package nl.appmodel.pornhub;
 
+import io.quarkus.scheduler.Scheduled;
 import lombok.AllArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.ToString;
@@ -8,21 +9,20 @@ import lombok.val;
 import nl.appmodel.PornHubHash;
 import nl.appmodel.realtime.HibernateUtil;
 import nl.appmodel.realtime.Update;
-import org.apache.commons.codec.binary.Hex;
 import org.eclipse.microprofile.context.ManagedExecutor;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.jdbc.Work;
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
+import javax.persistence.FlushModeType;
+import javax.persistence.LockModeType;
 import javax.transaction.Transactional;
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.InputStreamReader;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,19 +32,18 @@ import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.zip.CRC32;
 import java.util.zip.ZipInputStream;
 @Log
 @ApplicationScoped
 public class FullPornHubUpdates implements Update {
     private       int          changes       = 0;
-    private       long         update_time   = new Date().getTime();
     private final List<String> sqlStatements = new ArrayList<>();
     private final Set<Long>    seenIds       = new HashSet<>();
     private       long         skipped       = 0, examinedRecords = 0;
-    private              URL               url;
-    private static final char              separator = '|';
-    private final        Map<Long, String> hashes    = new ConcurrentHashMap<>();
-    static               MessageDigest     MD5       = Update.sneak(() -> MessageDigest.getInstance("MD5"));
+    private              URL             url;
+    private static final char            separator = '|';
+    private final        Map<Long, Long> hashes    = new ConcurrentHashMap<>();
     String URL   = "https://www.pornhub.com/files/pornhub.com-db.zip";
     int    total = 0;
     @Inject
@@ -56,14 +55,14 @@ public class FullPornHubUpdates implements Update {
     @SneakyThrows
     public static void main(String[] args) {
         var pornHubUpdates = new FullPornHubUpdates();
-        //pornHubUpdates.url = new URL("https://www.pornhub.com/files/pornhub.com-db.zip");
-        pornHubUpdates.URL           = "C:\\Users\\michael\\Documents\\Downloads\\pornhub.com-db.zip";
-        pornHubUpdates.url           = new File(pornHubUpdates.URL).toURI().toURL();
+        pornHubUpdates.url = new URL("https://www.pornhub.com/files/pornhub.com-db.zip");
+        //pornHubUpdates.URL           = "C:\\Users\\michael\\Downloads\\pornhub.com-db.zip";
+        //pornHubUpdates.url           = new File(pornHubUpdates.URL).toURI().toURL();
         pornHubUpdates.executor_used = Executors.newCachedThreadPool();
         pornHubUpdates.fact          = HibernateUtil.em();
         pornHubUpdates.session       = HibernateUtil.getCurrentSession();
         pornHubUpdates.session.getTransaction().begin();
-        pornHubUpdates.preflight_skip_dl();
+        pornHubUpdates.preflight();
     }
     public void cleanUp() {
         examinedRecords = 0;
@@ -76,49 +75,69 @@ public class FullPornHubUpdates implements Update {
     }
     private void resolveHashes(Consumer<PornHubHash> consumer) {
         executor_used.execute(() -> {
-            try (val stream = session.createQuery(
-                    "SELECT new nl.appmodel.PornHubHash(pornhub_id,changes_hash) from PornHub order by pornhub_id", PornHubHash.class)
-                                     .stream()) {
+            session.setFlushMode(FlushModeType.AUTO);
+     /*       NativeQuery nativeQuery = session.createNativeQuery("SELECT pornhub,crc FROM pornhub ORDER BY pornhub FOR UPDATE SKIP LOCKED", "REMAP");
+            nativeQuery.setReadOnly(true);
+            nativeQuery.stream().forEach(o -> {
+                log.info("[{}]" + o.toString());
+            });*/
+            var query = session.createQuery("SELECT new nl.appmodel.PornHubHash(pornhub,crc) from PornHub order by pornhub",
+                                            PornHubHash.class);
+            query.setLockMode(LockModeType.NONE);
+            query.setReadOnly(true);
+            try (val stream = query
+                    .stream()) {
                 stream.forEach(consumer);
             }
         });
     }
     @SneakyThrows
     public void preflight_skip_dl() {
-        update_time = new Date().getTime();
         sqlStatements.clear();
-        MD5 = MessageDigest.getInstance("MD5");
         if (executor_used == null) executor_used = executor;
         if (url == null) url = new URL(URL);
-        resolveHashes(pornHubHash -> hashes.put(pornHubHash.getPornhub_id(), pornHubHash.getChanges_hash()));
+        resolveHashes(pornHubHash -> hashes.put(pornHubHash.getPornhub(), pornHubHash.getCrc()));
         this.pornhubVideos(-1L);
+        cleanOptimisticRows();
         batchPersist();
         setUnavailableStatus();
         cleanUp();
     }
-    //    @Scheduled(cron = "0 09 02 * * ?", identity = "full-pornhub-videos-update")
+    private void cleanOptimisticRows() {
+
+    }
+    @Scheduled(cron = "0 09 02 * * ?", identity = "full-pornhub-videos-update")
     @Transactional
     @SneakyThrows
     public void preflight() {
-        update_time = new Date().getTime();
         sqlStatements.clear();
-        MD5 = MessageDigest.getInstance("MD5");
         if (executor_used == null) executor_used = executor;
         if (url == null) url = new URL(URL);
-        resolveHashes(pornHubHash -> hashes.put(pornHubHash.getPornhub_id(), pornHubHash.getChanges_hash()));
+        resolveHashes(pornHubHash -> hashes.put(pornHubHash.getPornhub(), pornHubHash.getCrc()));
         preflight(session, this::pornhubVideos, url);
         batchPersist();
         setUnavailableStatus();
         cleanUp();
     }
+    public void nonpornhubVideos(Long offset) {
+
+    }
     private void setUnavailableStatus() {
-        val keys = hashes.keySet();
+        val keys = new HashSet<>(hashes.keySet());
         keys.removeAll(seenIds);
-        val collect = keys.stream().map(aLong -> String.valueOf(aLong)).collect(Collectors.joining(","));
-        var nativeQuery = session.createNativeQuery(
-                "UPDATE pornhub set status = 10,updated=%s where status < 9 AND pornhub_id in (%s)".formatted(collect, update_time));
-        var changes = nativeQuery.executeUpdate();
-        log.info("Unavailable records:" + changes);
+        if (!keys.isEmpty()) {
+            val collect = keys.stream().map(aLong -> String.valueOf(aLong)).collect(Collectors.joining(","));
+            val nativeQuery = session.createNativeQuery("""
+                                                        UPDATE prosite.pornhub ph 
+                                                        FORCE INDEX (flag_pro)
+                                                        NATURAL JOIN prosite.valid_flag
+                                                        SET ph.flag    =ph.flag | 1024,
+                                                            ph.updated =DEFAULT 
+                                                        WHERE pornhub IN (%s)
+                                                        """.formatted(collect));
+            val changes = nativeQuery.executeUpdate();
+            log.info("Unavailable records:" + changes);
+        }
     }
     @SneakyThrows
     public void pornhubVideos(Long offset) {
@@ -140,66 +159,86 @@ public class FullPornHubUpdates implements Update {
     @ToString
     @AllArgsConstructor
     class PornhubRow {
-        long   pornhub_id;
-        String code, header, tag, cat;
+        long   pornhub;
+        String code, header, tag, cat, actor;
         long duration, views, up, down;
-        String picture_d, preview_d;
+        String preview_d;
+        long   $crc;
+        long   $crc_meta;
+        Dim    $dim;
         private String keyId(Dim dim) {
             return escape(dim.getSrc().split("/")[4]);
         }
         public String sql() {
-            val dim = dims(this.code);
-            return "(" + up + "," + down + "," + views + "," + duration + ",'" + cat + "',\"" + tag + "\",\"" + header + "\",\"" + picture_d + "\",\"" + preview_d + "\"," + dim
-                    .getW() + "," + dim.getH() + "," + pornhub_id + ",'" + keyId(dim) + "'," + update_time + ",1,\"" + hash() + "\")";
+            return "(" + up + "," + down + "," + views + "," + duration + ",\"" + cat + "\",\"" + tag + "\",\"" + actor + "\",\"" + header + "\",\"" + preview_d + "\"," + $dim
+                    .getW() + "," + $dim.getH() + "," + pornhub + ",\"" + keyId($dim) + "\"," + $crc_meta + "," + $crc + ")";
         }
-        public String hash() {
-            return new String(
-                    Hex.encodeHex(MD5.digest((tag + cat + views + "" + up + "" + down + "" + 0).getBytes(StandardCharsets.UTF_8))));
+        public PornhubRow crc_meta32() {
+            var crc32 = new CRC32();
+            //CRC32(CONCAT_WS('',tag, cat, actor, header, thumbs, w, h, duration))
+            crc32.update((tag + cat + actor + "" + header + "" + preview_d + "" + $dim.getW() + "" + $dim.getH() + "" + duration)
+                                 .getBytes(StandardCharsets.UTF_8));
+            this.$crc_meta = crc32.getValue();
+            return this;
+        }
+        public PornhubRow crc32() {
+            $dim = dims(this.code);
+            var crc32 = new CRC32();
+            //CRC32(CONCAT_WS('',tag, cat, views, up, down, IF(flag & 256 = 0, 0, 1)))
+            crc32.update((tag + cat + views + "" + up + "" + down + "" + 0).getBytes(StandardCharsets.UTF_8));
+            this.$crc = crc32.getValue();
+            return this;
         }
     }
     @SneakyThrows
     private void readPornhubSourceFileEntry(String[] strings) {
+        //TODO: CRC should be here.. the setup now is less error prone
+        //var crc32 = new CRC32();
+        //crc32.update(String.join("", strings).getBytes(StandardCharsets.UTF_8));
+
         examinedRecords++;
-        val pornhub_id = pornhubIdFromThumb(strings[1]);
+        val pornhub = pornhubIdFromThumb(strings[1]);
         if (strings.length < 13 ||
             Arrays.stream(strings).anyMatch(s -> s == null) ||
-            pornhubIdFromThumb(strings[11]) != pornhub_id ||
-            pornhub_id < 0
+            pornhubIdFromThumb(strings[11]) != pornhub ||
+            pornhub < 0
         ) {
             log.warning("Invalid record, skipping [" + String.join(" ", strings) + "]");
             return;
         }
         try {
-            addToBatch(pornhub_id, new PornhubRow(pornhub_id,
-                                                  strings[0],
-                                                  escapeStrict(strings[3]),
-                                                  escapeStrict(strings[4]),
-                                                  escapeStrict(strings[5]),
-                                                  sqlNumber(strings[7]),
-                                                  sqlNumber(strings[8]),
-                                                  sqlNumber(strings[9]),
-                                                  sqlNumber(strings[10]),
-                                                  escape(strings[11]),
-                                                  escape(strings[12]))
+            addToBatch(pornhub, new PornhubRow(pornhub,
+                                               strings[0],
+                                               escapeStrict(strings[3]),
+                                               escapeStrict(strings[4]),
+                                               escapeStrict(strings[5]),
+                                               escapeStrict(strings[6]),
+                                               Math.min(sqlNumber(strings[7]), 65535),
+                                               INT(sqlNumber(strings[8])),
+                                               INT(sqlNumber(strings[9])),
+                                               INT(sqlNumber(strings[10])),
+                                               CONCAT(escape(strings[11]), escape(strings[12]))).crc32()
                       );
         } catch (Exception e) {
             log.warning("Invalid record " + String.join(" ", strings));
         }
     }
-    private void addToBatch(long pornhub_id, PornhubRow row) {
-        if (hashes.containsKey(pornhub_id)) {
-            if (row.hash().equals(hashes.get(pornhub_id))) {
+    private void addToBatch(long pornhub, PornhubRow row) {
+        if (hashes.containsKey(pornhub)) {
+            if (row.$crc == hashes.get(pornhub)) {
                 skipped++;
             } else {
-                sqlStatements.add(row.sql());
+                sqlStatements.add(row.crc_meta32().sql());
             }
-            hashes.remove(pornhub_id);
+            hashes.remove(pornhub);
         } else {
-            sqlStatements.add(row.sql());
-            seenIds.add(pornhub_id);
+            sqlStatements.add(row.crc_meta32().sql());
+            seenIds.add(pornhub);
+        }
+        if (examinedRecords % 10000 == 0) {
+            log.info("Progress Examined:[" + examinedRecords + "] Changes:[" + changes + "] total:[" + total + "] skipped" + skipped);
         }
         if (sqlStatements.size() >= 10000) batchPersist();
-        log.info("Progress Examined:[" + examinedRecords + "] Changes:[" + changes + "] total:[" + total + "] skipped" + skipped);
     }
     /**
      * batch large request synchronous partitioning
@@ -221,27 +260,29 @@ public class FullPornHubUpdates implements Update {
     @Transactional
     private void persistBatch(List<String> subSet) {
         val block = """
-                    INSERT INTO prosite.pornhub (up,down,views,duration,cat,tag,header,picture_d,preview_d,w,h,pornhub_id,keyid,updated,status,changes_hash) VALUES
-                    %s  
-                    AS new ON DUPLICATE KEY UPDATE 
-                    up=new.up,
-                    down=new.down,
-                    views=new.views, 
+                    INSERT INTO prosite.pornhub (up,down,views,duration,cat,tag,actor,header,preview_d,w,h,pornhub,keyid,$crc_meta,$crc)
+                    SELECT * FROM pornhub AS new 
+                    ON DUPLICATE KEY UPDATE 
+                    up    =new.up,
+                    down  =new.down,
+                    views =new.views, 
                     duration=new.duration, 
-                    cat=new.cat, 
-                    tag=new.tag, 
+                    cat     =IF(new.$crc_meta = prosite.pornhub.crc_meta, prosite.pornhub.cat, new.cat),
+                    actor   =IF(new.$crc_meta = prosite.pornhub.crc_meta, prosite.pornhub.actor, new.actor),  
+                    tag     =IF(new.$crc_meta = prosite.pornhub.crc_meta, prosite.pornhub.tag, new.tag), 
                     header=new.header, 
-                    picture_d=new.picture_d, 
-                    preview_d=new.preview_d, 
-                    w=new.w, 
-                    h=new.h, 
-                    updated=new.updated, 
-                    changes_hash=new.changes_hash,
-                    prosite.pornhub.status=IF(prosite.pornhub.picture_d != new.picture_d,5,  
-                                                   IF(prosite.pornhub.status=2 OR prosite.pornhub.status=4,4,prosite.pornhub.status)
-                                                   ));
-                    """.formatted(String.join(",\n", subSet));
-
+                    preview_d=IF(new.$crc_meta = prosite.pornhub.crc_meta, prosite.pornhub.preview_d, new.preview_d),
+                    $crc_meta=IF(new.$crc_meta = prosite.pornhub.crc_meta, prosite.pornhub.$crc_meta, new.$crc_meta), 
+                    $crc     =IF(new.$crc      = prosite.pornhub.crc,prosite.pornhub.$crc,new.$crc),
+                    w      =new.w, 
+                    h      =new.h, 
+                    updated=DEFAULT, 
+                    flag   = prosite.pornhub.flag & ~(
+                                                IF(new.$crc_meta = prosite.pornhub.crc_meta, 0, 0b010) |
+                                                IF(CRC32(CONCAT_WS('',new.views, new.up , new.down, 0))    = prosite.pornhub.crc_stats,0, 0b100)
+                                                )
+                    """.replace("SELECT * FROM pornhub AS new", "VALUES " + String.join(",\n", subSet) + " AS new ");
+        //what i want to say to the status, meta done, stats done, (if downloaded or not stay that way) , if error/deleted or not stay that way.
         executor_used.execute(() -> {
             total += subSet.size();
             val em      = fact.createEntityManager();
@@ -272,8 +313,10 @@ public class FullPornHubUpdates implements Update {
                 m.find();
                 var lines = Integer.parseInt(m.group(1));
                 val split = this.story.split("\n");
-                log.info(split[lines - 1] + "\n" + split[lines - 1] + '\n' + split[lines + 1]);
+                log.info(split[Math.max(0, lines - 1)] + "\n" + split[lines] + '\n' + split[Math.min(split.length, lines + 1)]);
             } catch (Exception e) {
+                log.warning(story);
+                log.warning(err);
                 log.warning("Error" + e);
             }
         }
@@ -287,6 +330,8 @@ public class FullPornHubUpdates implements Update {
                 val split = this.story.split("\n");
                 log.info(split[lines - 1] + "\n" + split[lines - 1] + '\n' + split[lines + 1]);
             } catch (Exception e) {
+                log.warning(story);
+                log.warning(err);
                 log.warning("Error" + e);
             }
         }

@@ -21,8 +21,8 @@ public class Xtube {
     @Column int    pro_id;
     @Column String code;
     @Column String url;
-    @Column String picture_m;
-    @Column String preview_m;
+    @Column String picture_d;
+    @Column String preview_d;
     @Column String header;
     @Column String tag;
     @Column String tag2;

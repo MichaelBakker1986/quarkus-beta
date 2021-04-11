@@ -3,6 +3,7 @@ package nl.appmodel.realtime;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import nl.appmodel.PornHub;
+import nl.appmodel.PornHubHash;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.cfg.Configuration;
@@ -34,6 +35,7 @@ public class HibernateUtil {
 
         return new Configuration()
                 .addAnnotatedClass(PornHub.class)
+                .addAnnotatedClass(PornHubHash.class)
                 .setProperties(properties)
                 .buildSessionFactory().getCurrentSession();
     }
@@ -52,6 +54,7 @@ public class HibernateUtil {
 
         return new Configuration()
                 .addAnnotatedClass(PornHub.class)
+                .addAnnotatedClass(PornHubHash.class)
                 .setProperties(properties)
                 .buildSessionFactory();
     }

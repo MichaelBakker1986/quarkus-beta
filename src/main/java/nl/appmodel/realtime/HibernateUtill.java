@@ -11,9 +11,9 @@ import org.hibernate.cfg.Environment;
 import java.util.Properties;
 import java.util.function.Consumer;
 @Slf4j
-public class HibernateUtil {
+public class HibernateUtill {
     public static void run(Consumer<Session> run) {
-        val session = HibernateUtil.getCurrentSession();
+        val session = HibernateUtill.getCurrentSession();
         session.getTransaction().begin();
         run.accept(session);
         session.getTransaction().commit();

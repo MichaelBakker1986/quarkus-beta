@@ -13,6 +13,6 @@ import org.hibernate.annotations.Immutable;
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @Immutable
 public class YoupornDTO implements TagAndId {
-    @Include long pro_id;
+    @Include long pro;
     String tag;
 }

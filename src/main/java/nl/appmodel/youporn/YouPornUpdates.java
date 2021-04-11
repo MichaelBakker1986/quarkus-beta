@@ -5,7 +5,6 @@ import io.quarkus.scheduler.Scheduled;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
-import nl.appmodel.realtime.HibernateUtil;
 import nl.appmodel.realtime.Update;
 import org.hibernate.Session;
 import javax.enterprise.context.ApplicationScoped;
@@ -18,7 +17,6 @@ import java.io.StringReader;
 import java.net.URL;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.logging.Logger;
 import java.util.zip.ZipInputStream;
@@ -28,7 +26,6 @@ public class YouPornUpdates implements Update {
     private static final Logger       LOG           = Logger.getLogger(String.valueOf(YouPornUpdates.class));
     private              long         nBytesOffset  = 0;
     private              int          changes       = 0;
-    private              long         update_time   = new Date().getTime();
     private final        List<String> sqlStatements = new ArrayList<>();
     private static final char         separator     = '|';
     private static final String       zip_url       = "https://www.youporn.com/YouPorn-Embed-Videos-Dump.zip";
@@ -40,9 +37,8 @@ public class YouPornUpdates implements Update {
         var pornHubUpdates = new YouPornUpdates();
         pornHubUpdates.url = new File("C:\\Users\\michael\\Documents\\Downloads\\YouPorn-Embed-Videos-Dump.zip").toURI().toURL();
         //pornHubUpdates.url     = new URL(zip_url);
-        pornHubUpdates.session = HibernateUtil.getCurrentSession();
+        pornHubUpdates.session = nl.appmodel.realtime.HibernateUtill.getCurrentSession();
         pornHubUpdates.session.getTransaction().begin();
-        pornHubUpdates.update_time = new Date().getTime();
         pornHubUpdates.sqlStatements.clear();
         pornHubUpdates.download(0l);
         pornHubUpdates.session.getTransaction().commit();
@@ -57,19 +53,18 @@ public class YouPornUpdates implements Update {
     }
     public void download(long content_length) {
         try {
-            update_time = new Date().getTime();
             sqlStatements.clear();
             changes      = 0;
             nBytesOffset = Long.parseLong(String.valueOf(
                     session.createNativeQuery(
-                            "SELECT IFNULL((SELECT value from prosite.cursors c where c.name=:name),:default_offset)")
+                            "SELECT IFNULL((SELECT value from prosite.marker c where c.name=:name),:default_offset)")
                            .setParameter("name", getClass().getSimpleName().toLowerCase() + "_file_cursor")
                            .setParameter("default_offset", 1211164259 - (1024 * 100))
                            .getSingleResult()));
             long totalLength = zipUpdate(separator);
             batchPersist();
             if (totalLength > nBytesOffset)
-                session.createNativeQuery("REPLACE INTO prosite.cursors VALUES (:name,:totalLength)")
+                session.createNativeQuery("REPLACE INTO prosite.marker VALUES (:name,:totalLength)")
                        .setParameter("name", getClass().getSimpleName().toLowerCase() + "_file_cursor")
                        .setParameter("totalLength", String.valueOf(totalLength))
                        .executeUpdate();
@@ -118,14 +113,13 @@ public class YouPornUpdates implements Update {
         try {
             var iframe      = strings[0].substring(0, strings[0].indexOf("/iframe") + 8);
             val code        = escape(iframe);
-            val picture_m   = escape(strings[1]);
+            val preview_d   = escape(strings[1]);
             val header      = escape(strings[2]);
             val tags        = escape(strings[3]);
             val cat         = escape(strings[4]);
-            val duration_ui = escape(strings[6]);
             int duration    = Integer.parseInt(strings[7]);
             val url         = escape(strings[8]);
-            val youporn_id  = Long.parseLong(strings[9]);
+            val youporn  = Long.parseLong(strings[9]);
 
             var dims  = dims(iframe);
             var actor = "";
@@ -133,8 +127,8 @@ public class YouPornUpdates implements Update {
                 actor = escape(strings[5]);
             }
             sqlStatements.add(
-                    "(\"" + code + "\",\"" + duration_ui + "\"," + duration + ",\"" + cat + "\",\"" + tags + "\",\"" + header + "\",\"" + picture_m + "\"," + dims
-                            .getW() + "," + dims.getH() + "," + youporn_id + ",\"" + actor + "\",\"" + url + "\"," + update_time + ",1)");
+                    "(\"" + code + "\"," + duration + ",\"" + cat + "\",\"" + tags + "\",\"" + header + "\",\"" + preview_d + "\"," + dims
+                            .getW() + "," + dims.getH() + "," + youporn + ",\"" + actor + "\",\"" + url + "\")");
         } catch (Exception e) {
             log.warn("Failed to parse [{}] because [{}]", Joiner.on("\n").join(strings), e.getMessage());
         }
@@ -143,9 +137,16 @@ public class YouPornUpdates implements Update {
     private void batchPersist() {
         if (sqlStatements.isEmpty()) return;
         var sql = """
-                  INSERT INTO prosite.youporn (code,duration_ui,duration,cat,tag,header,picture_m,w,h,youporn_id,actor,url,updated,status) VALUES
+                  INSERT INTO prosite.youporn (code,duration_ui,duration,cat,tag,header,preview_d,w,h,youporn,actor,url) VALUES
                   %s 
-                  AS new ON DUPLICATE KEY UPDATE code=new.code, duration_ui=new.duration_ui, duration=new.duration, cat=new.cat, tag=new.tag, header=new.header, picture_m=new.picture_m, w=new.w, h=new.h, youporn_id=new.youporn_id, actor=new.actor, url=new.url, updated=new.updated, prosite.youporn.status=IF(prosite.youporn.status=2,2,1);
+                  AS new ON DUPLICATE KEY UPDATE 
+                  code=new.code, 
+                  duration=new.duration, 
+                  cat=new.cat, 
+                  tag=new.tag, 
+                  header=new.header, 
+                  preview_d=new.preview_d, w=new.w, h=new.h, youporn=new.youporn, actor=new.actor, url=new.url, updated=DEFAULT, 
+                  prosite.youporn.flag=prosite.youporn.flag & ~6;
                   """.formatted(String.join(",\n", sqlStatements));
         changes = session.createNativeQuery(sql)
                          .executeUpdate();

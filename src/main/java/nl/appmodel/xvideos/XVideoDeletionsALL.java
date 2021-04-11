@@ -3,7 +3,7 @@ package nl.appmodel.xvideos;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
-import nl.appmodel.realtime.HibernateUtil;
+import nl.appmodel.realtime.HibernateUtill;
 import nl.appmodel.realtime.Update;
 import org.hibernate.Session;
 import javax.enterprise.context.ApplicationScoped;
@@ -37,7 +37,7 @@ public class XVideoDeletionsALL implements Update {
     public static void main(String[] args) {
         var pornHubUpdates = new XVideoDeletionsALL();
         pornHubUpdates.url     = new URL(zip_url);
-        pornHubUpdates.session = HibernateUtil.getCurrentSession();
+        pornHubUpdates.session = HibernateUtill.getCurrentSession();
         pornHubUpdates.session.getTransaction().begin();
         pornHubUpdates.update_time = new Date().getTime();
         pornHubUpdates.preflight();
@@ -95,9 +95,9 @@ public class XVideoDeletionsALL implements Update {
      */
     @SneakyThrows
     private void readXVideosSourceFileEntry(String[] strings) {
-        val url      = escape(strings[1]);
-        var embed_id = url.split("/")[3].replaceAll("[^0-9]", "");
-        sqlStatements.add(embed_id);
+        val url     = escape(strings[1]);
+        var xvideos = url.split("/")[3].replaceAll("[^0-9]", "");
+        sqlStatements.add(xvideos);
     }
     @SneakyThrows
     private void batchPersist() {
@@ -112,14 +112,11 @@ public class XVideoDeletionsALL implements Update {
             asSet.removeAll(subset);
             if (!subset.isEmpty()) {
                 var sql = """
-                          UPDATE prosite.xvideos x, prosite.pro p 
+                          UPDATE prosite.xvideos 
                           SET
-                          x.status = 9,
-                          x.updated = :updated,
-                          p.status=9,
-                          p.updated = :updated
-                          WHERE  x.pro_id = p.id
-                          AND embed_id IN (%s)
+                          updated = DEFAULT,
+                          flag=flag | 256
+                          WHERE xvideos IN (%s)
                           """.formatted(String.join(",", subset));
                 changes += session.createNativeQuery(sql)
                                   .setParameter("updated", updated)

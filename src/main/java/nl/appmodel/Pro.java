@@ -13,7 +13,7 @@ import javax.persistence.*;
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @NoArgsConstructor
 public class Pro {
-    @Id @GeneratedValue @Include long    id;
-    @Column                      String  thumbs;
+    @Id @GeneratedValue @Include long   pro;
+    @Column                      String thumbs;
     @Column(nullable = false)    boolean downloaded = true;
 }

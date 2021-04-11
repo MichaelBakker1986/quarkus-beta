@@ -11,6 +11,6 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class XVideoDTO implements TagAndId {
-    @Include long pro_id;
+    @Include long pro;
     String tag;
 }

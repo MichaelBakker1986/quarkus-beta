@@ -4,7 +4,7 @@ import io.quarkus.scheduler.Scheduled;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
-import nl.appmodel.realtime.HibernateUtil;
+import nl.appmodel.realtime.HibernateUtill;
 import nl.appmodel.realtime.Update;
 import org.hibernate.Session;
 import javax.enterprise.context.ApplicationScoped;
@@ -41,7 +41,7 @@ public class PornHubUpdates implements Update {
         var pornHubUpdates = new PornHubUpdates();
         pornHubUpdates.url = new URL("https://www.pornhub.com/files/pornhub.com-db.zip");
         //   var url = new File("C:\\Users\\michael\\Documents\\Downloads\\pornhub.com-db.zip").toURI().toURL();
-        pornHubUpdates.session = HibernateUtil.getCurrentSession();
+        pornHubUpdates.session = HibernateUtill.getCurrentSession();
         pornHubUpdates.session.getTransaction().begin();
         pornHubUpdates.update_time = new Date().getTime();
         pornHubUpdates.sqlStatements.clear();

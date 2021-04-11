@@ -7,7 +7,7 @@ import lombok.ToString;
 import lombok.extern.java.Log;
 import lombok.val;
 import nl.appmodel.PornHubHash;
-import nl.appmodel.realtime.HibernateUtil;
+import nl.appmodel.realtime.HibernateUtill;
 import nl.appmodel.realtime.Update;
 import org.eclipse.microprofile.context.ManagedExecutor;
 import org.hibernate.Session;

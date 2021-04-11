@@ -18,7 +18,7 @@ import javax.persistence.Table;
 public class Xtube {
     @Id
     @EqualsAndHashCode.Include
-    @Column int    pro_id;
+    @Column int    pro;
     @Column String code;
     @Column String url;
     @Column String picture_d;

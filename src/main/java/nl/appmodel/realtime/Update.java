@@ -23,6 +23,7 @@ public interface Update {
     Logger   LOG          = Logger.getLogger(String.valueOf(Update.class));
     Notifier notifier     = new Notifier();
     Long     MILLS_IN_DAY = 86400000L;
+
     @SneakyThrows
     default void readSourceFile(char sep, Reader in_reader, Consumer<String[]> consumer) {
         var csvReaderBuilder = new CSVReaderBuilder(in_reader)
@@ -93,9 +94,11 @@ public interface Update {
         return new Dim(w, h, src);
     }
     default String trim(String s) {
-        return s.replaceAll("^[\"' ]+|[\"' ]+$", "");
+        return s.replaceAll("^[\"`' ]+|[\"`' ]+$", "");
     }
     static void main(String[] args) {
+
+
         //  var dims = new Update() {}.dims("testabsd width='100' height=100");
         var upd = new Update() {};
         var matches = Pattern.compile("(\\S+)=[\"']?((?:.(?![\"']?\\s+(?:\\S+)=|\\s*\\/?[>\"']))+.)[\"']?")
@@ -103,7 +106,7 @@ public interface Update {
                              .results()
                              .map(MatchResult::group)
                              .collect(Collectors.toMap(o -> o.split("=")[0],
-                                                       o -> upd.escape(o.split("=")[1].replaceAll("^[\"' ]+|[\"' ]+$", ""))));
+                                                       o -> upd.escape(o.split("=")[1].replaceAll("^[\"`' ]+|[\"`' ]+$", ""))));
 
         System.out.println(matches.entrySet());
     }
@@ -122,7 +125,7 @@ public interface Update {
         return in
                 .replaceAll("[\\\\{\\[]", "(")
                 .replaceAll("[/}\\]]", ")")
-                .replaceAll("[;:?]", ",")
+                .replaceAll("[;:? ]", ",")
                 .replaceAll("[\"`]", "'");
     }
     default String escape(String in) {
@@ -130,7 +133,7 @@ public interface Update {
         return in
                 .replaceAll("[{\\[]", "(")
                 .replaceAll("[}\\]]", ")")
-                .replaceAll("[;]", ",")
+                .replaceAll("[; ]", ",")
                 .replaceAll("[\"`]", "'");
     }
     default boolean isNumeric(String str) {

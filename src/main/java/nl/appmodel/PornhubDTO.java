@@ -9,6 +9,6 @@ import lombok.experimental.FieldDefaults;
 @NoArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class PornhubDTO implements TagAndId {
-    @Include long pro_id;
+    @Include long pro;
     String tag;
 }

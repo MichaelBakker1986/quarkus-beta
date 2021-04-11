@@ -11,7 +11,7 @@ public class UpdateDetails {
     @SneakyThrows
     public static void main(String[] args) {
         var updateDetails = new UpdateDetails();
-        HibernateUtil.run(updateDetails::updateEntities);
+        HibernateUtill.run(updateDetails::updateEntities);
     }
 
     public void updateEntities(Session session) {

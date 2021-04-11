@@ -4,7 +4,7 @@ import io.quarkus.scheduler.Scheduled;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
-import nl.appmodel.realtime.HibernateUtil;
+import nl.appmodel.realtime.HibernateUtill;
 import nl.appmodel.realtime.Update;
 import org.hibernate.Session;
 import javax.enterprise.context.ApplicationScoped;
@@ -40,7 +40,7 @@ public class XVideoUpdates implements Update {
         var pornHubUpdates = new XVideoUpdates();
         pornHubUpdates.url = new URL(zip_url);
         //   var url = new File("C:\\Users\\michael\\Documents\\Downloads\\pornhub.com-db.zip").toURI().toURL();
-        pornHubUpdates.session = HibernateUtil.getCurrentSession();
+        pornHubUpdates.session = HibernateUtill.getCurrentSession();
         pornHubUpdates.session.getTransaction().begin();
         pornHubUpdates.update_time = new Date().getTime();
         pornHubUpdates.sqlStatements.clear();
@@ -58,7 +58,7 @@ public class XVideoUpdates implements Update {
     public void preflight(URL url) {
         long cachedLastModified = Long.parseLong(String.valueOf(
                 session.createNativeQuery(
-                        "SELECT IFNULL((SELECT value from prosite.cursors c where c.name='xvideos_videos_file_last_modified'),0)")
+                        "SELECT IFNULL((SELECT value from prosite.marker c where c.name='xvideos_videos_file_last_modified'),0)")
                        .getSingleResult()));
 
         var connection      = (HttpURLConnection) url.openConnection();
@@ -70,7 +70,7 @@ public class XVideoUpdates implements Update {
         if (headerModifiedUTC != cachedLastModified) {
             xvideosVideos();
             session.createNativeQuery(
-                    "REPLACE INTO prosite.cursors VALUES ('xvideos_videos_file_last_modified',:file_last_modified)")
+                    "REPLACE INTO prosite.marker VALUES ('xvideos_videos_file_last_modified',:file_last_modified)")
                    .setParameter(
                            "file_last_modified", String.valueOf(headerModifiedUTC)).executeUpdate();
         } else {
@@ -125,31 +125,36 @@ public class XVideoUpdates implements Update {
      */
     @SneakyThrows
     private void readXVideosSourceFileEntry(String[] strings) {
-        val url         = escape(strings[0]);
-        val header      = escape(strings[1]);
-        val duration_ui = escape(strings[2]);
-        val picture_m   = escape(strings[3]);
-        val dim         = dims(strings[4]);
-        val code        = escape(strings[4]);
-        val tags        = escape(strings[5]);
-        val actor       = escape(strings[6]);
-        val embed_id    = escape(strings[7]);
-        val cat         = escape(strings[8]);
-        val duration    = sqlNumber(duration_ui);
-        val args = new Object[]{
+        val header    = escape(strings[1]);
+        val preview_d = escape(strings[3]);
+        val dim       = dims(strings[4]);
+        val tags      = escape(strings[5]);
+        val actor     = escape(strings[6]);
+        val xvideos   = escape(strings[7]);
+        val cat       = escape(strings[8]);
+        val duration  = sqlNumber(escape(strings[2]));
 
-        };
         sqlStatements.add(
-                "(\"" + code + "\",\"" + url + "\",\"" + duration_ui + "\"," + duration + ",\"" + cat + "\",\"" + tags + "\",\"" + header + "\",\"" + picture_m + "\"," + dim
-                        .getW() + "," + dim.getH() + ",\"" + actor + "\"," + embed_id + "," + update_time + ",1)");
+                "(\"," + duration + ",\"" + cat + "\",\"" + tags + "\",\"" + header + "\",\"" + preview_d + "\"," + dim
+                        .getW() + "," + dim.getH() + ",\"" + actor + "\"," + xvideos + ")");
     }
     @SneakyThrows
     private void batchPersist() {
         if (sqlStatements.isEmpty()) return;
         var sql = """
-                  INSERT INTO prosite.xvideos (code,url,duration_ui,duration,cat,tag,header,picture_m,w,h,actor,embed_id,updated,status) VALUES
+                  INSERT INTO prosite.xvideos (duration,cat,tag,header,preview_d,w,h,actor,xvideos) VALUES
                   %s 
-                  AS new ON DUPLICATE KEY UPDATE code=new.code, url=new.url, duration_ui=new.duration_ui, duration=new.duration, cat=new.cat, tag=new.tag, header=new.header, picture_m=new.picture_m, w=new.w, h=new.h, actor=new.actor, embed_id=new.embed_id, updated=new.updated, prosite.xvideos.status=IF(prosite.xvideos.status=2,2,1);
+                  AS new ON DUPLICATE KEY UPDATE 
+                  duration=new.duration, 
+                  cat=new.cat, 
+                  tag=new.tag, h
+                  eader=new.header, 
+                  preview_d=new.preview_d, 
+                  w=new.w, 
+                  h=new.h, 
+                  actor=new.actor, 
+                  updated=DEFAULT, 
+                  prosite.xvideos.flag=flag & ~6;
                   """.formatted(String.join(",\n", sqlStatements));
         changes = session.createNativeQuery(sql)
                          .executeUpdate();

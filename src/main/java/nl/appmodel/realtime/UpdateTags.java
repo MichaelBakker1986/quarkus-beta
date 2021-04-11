@@ -76,10 +76,10 @@ public class UpdateTags {
                                                 */
                                                 /*#Derrive tags from outstanding changes in meta_changes..*/
                                                 /*#step 1, get the tags, display and index*/
-                                                                                             
-                                                INSERT IGNORE INTO new_tag (pro,idx,display)  
-                                                SELECT
-                                                pro,
+                                                INSERT IGNORE INTO new_tag (pro,idx,display) 
+                                                WITH top AS (SELECT pro,tag_count,tag_set FROM meta_changes) ,
+                                                topxtagset AS (SELECT pro,SUBSTRING_INDEX(SUBSTRING_INDEX(tag_set, ',', t), ',', -1) AS display FROM tag_numbers JOIN top ON tag_count >= t ),
+                                                topxtag AS (SELECT pro,
                                                 REGEXP_REPLACE(
                                                 REPLACE(
                                                 REPLACE(
@@ -89,27 +89,48 @@ public class UpdateTags {
                                                 REPLACE(
                                                 REPLACE(
                                                 REPLACE(
+                                                REPLACE(
+                                                REPLACE(
+                                                REPLACE(
+                                                REPLACE(
+                                                REPLACE(
+                                                REPLACE(
+                                                REPLACE(
+                                                REPLACE(
                                                 REGEXP_REPLACE(
-                                                LOWER(SUBSTRING_INDEX(SUBSTRING_INDEX(tag_set, ',', n), ',', -1))
-                                                ,'[^a-z0-9]','')
-                                                ,'5','s')
-                                                ,'2','z')
-                                                ,'8','b')
-                                                ,'9','q')
-                                                ,'y','i')
-                                                ,'0','o')
-                                                ,'1','i')
-                                                ,'3','e')
-                                                ,'4','a')
+                                                REGEXP_REPLACE(
+                                                REGEXP_REPLACE(
+                                                REGEXP_REPLACE(
+                                                REGEXP_REPLACE(
+                                                REGEXP_REPLACE(
+                                                UPPER(display)
+                                                ,'[ÒÓÔÕÖØ]','O')
+                                                ,'[ÙÚÛÜ]','U')
+                                                ,'[ÌÍÎÏ¡Ÿİ¥I]','I')
+                                                ,'[ÈÉÊË£]','E')
+                                                ,'[ÀÁÂÃÄÅÆ©@Ą]','A')
+                                                ,'[^A-Z0-9]','')
+                                                ,'Y','I')
+                                                ,'Z','S')
+                                                ,'W','V')
+                                                ,'C','K')
+                                                ,'Q','O')
+                                                ,'J','I')
+                                                ,'0','O')
+                                                ,'1','I')
+                                                ,'2','Z')
+                                                ,'3','E')
+                                                ,'4','A')
+                                                ,'5','S')
+                                                ,'6','X')
+                                                ,'7','Y')
+                                                ,'8','B')
+                                                ,'9','Q')
                                                 ,'(.)\\\\1{1,}','$1') ,
-                                                SUBSTRING_INDEX(SUBSTRING_INDEX(tag_set, ',', n), ',', -1) 
-                                                FROM tag_numbers
-                                                JOIN meta_changes ON tag_count > n             
-                                                ORDER BY  pro, n;
-                                                                                                
-                                                /*step 1a, delete invalid tags..*/
-                                                DELETE from new_tag where char_length(idx)<=2;
-                                                                                                
+                                                display
+                                                FROM topxtagset WHERE CHAR_LENGTH(display)>2)
+                                                SELECT * FROM topxtag ;
+                                                                                       
                                                 /*#step 2, join new tags in tag table.*/
                                                 INSERT IGNORE INTO tag (idx,display)
                                                 SELECT  nt.idx  ,
@@ -117,13 +138,13 @@ public class UpdateTags {
                                                 FROM new_tag nt
                                                 LEFT JOIN  tag t USING(idx)
                                                 WHERE t.tag IS NULL
-                                                GROUP by t.idx;
+                                                GROUP BY t.idx;
                                                                                                 
                                                 /*#step 3, get best 100 tags for every pro*/
                                                 INSERT INTO pro_tag(pro,tag)
                                                 WITH top AS 
                                                 ( 
-                                                    select pro, ROW_NUMBER() OVER (
+                                                    SELECT pro, ROW_NUMBER() OVER (
                                                             PARTITION BY pro
                                                             ORDER BY popularity DESC
                                                     ) order_num,popularity, tag
@@ -133,7 +154,9 @@ public class UpdateTags {
                                                 SELECT top.pro, top.tag
                                                 FROM top
                                                 LEFT JOIN pro_tag pt USING (pro,tag)
-                                                WHERE top.order_num <=100;
+                                                WHERE top.order_num <=100
+                                                AND pt.tag IS NULL
+                                                ;
                                                                                                 
                                                 TRUNCATE new_tag;
                                                                                                 
@@ -143,23 +166,23 @@ public class UpdateTags {
                                                             n,
                                                             SUBSTRING_INDEX(SUBSTRING_INDEX(thumbs, ',', n), ',', -1)
                                                      FROM meta_changes
-                                                              INNER JOIN thumb_numbers ON thumb_count > n - 1
+                                                              INNER JOIN thumb_numbers ON thumb_count >= n
                                                      ORDER BY pro, n
                                                     ;
                                                 INSERT IGNORE INTO host ( domain, pointer, start, end, dl)
                                                 SELECT domain,
-                                                       min(pro),
-                                                       min(pro),
-                                                       max(pro),
-                                                       count(pro)     
+                                                       MIN(pro),
+                                                       MIN(pro),
+                                                       MAX(pro),
+                                                       COUNT(pro)     
                                                 FROM thumb b 
                                                 WHERE b.host IS NULL AND state = 0
-                                                GROUP by b.domain;
+                                                GROUP BY b.domain;
                                                                                                 
                                                 UPDATE thumb t
                                                     INNER JOIN host h USING (domain)
                                                 SET t.host= h.host,
-                                                    t.url   =SUBSTR(url FROM char_length(SUBSTRING_INDEX(url, '/', 3)) + 1),
+                                                    t.url   =SUBSTR(url FROM CHAR_LENGTH(SUBSTRING_INDEX(url, '/', 3)) + 1),
                                                     t.state = 1
                                                 WHERE t.state=0;
                                                                                                 
@@ -177,7 +200,7 @@ public class UpdateTags {
 
         for (Network network : Network.values()) {
             val changes = session.createNativeQuery("""
-                                                    update %s n
+                                                    UPDATE %s n
                                                     JOIN host h       USING (domain)
                                                     JOIN meta_changes USING (pro)
                                                     JOIN pro p        USING (pro)
@@ -185,9 +208,9 @@ public class UpdateTags {
                                                         n.$crc      = n.crc,
                                                         n.$crc_meta = n.crc_meta,
                                                         p.crc_meta  = n.crc_meta,
-                                                        n.preview_d = null,
-                                                        n.tag       = null,
-                                                        n.cat       = null,
+                                                        n.preview_d = NULL,
+                                                        n.tag       = NULL,
+                                                        n.cat       = NULL,
                                                         n.host      = h.host,
                                                         n.flag      = n.flag | 2,
                                                         p.updated   = DEFAULT,
@@ -207,6 +230,6 @@ public class UpdateTags {
     @SneakyThrows
     public static void main(String[] args) {
         var job = new UpdateTags();
-        HibernateUtil.run(job::updateEntities);
+        HibernateUtill.run(job::updateEntities);
     }
 }

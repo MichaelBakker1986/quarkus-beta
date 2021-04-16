@@ -4,7 +4,7 @@ import io.quarkus.scheduler.Scheduled;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
-import nl.appmodel.Network;
+import nl.appmodel.realtime.model.Network;
 import org.hibernate.LockOptions;
 import org.hibernate.Session;
 import javax.inject.Inject;

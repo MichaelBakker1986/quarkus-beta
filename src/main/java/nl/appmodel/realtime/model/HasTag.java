@@ -1,4 +1,4 @@
-package nl.appmodel;
+package nl.appmodel.realtime.model;
 
 public interface HasTag {
     String getTag();

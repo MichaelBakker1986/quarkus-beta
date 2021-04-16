@@ -2,8 +2,9 @@ package nl.appmodel.realtime;
 
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
-import nl.appmodel.PornHub;
-import nl.appmodel.PornHubHash;
+import nl.appmodel.realtime.model.NetworkHash;
+import nl.appmodel.realtime.model.PornHub;
+import nl.appmodel.realtime.model.YouPorn;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.cfg.Configuration;
@@ -35,7 +36,8 @@ public class HibernateUtill {
 
         return new Configuration()
                 .addAnnotatedClass(PornHub.class)
-                .addAnnotatedClass(PornHubHash.class)
+                .addAnnotatedClass(NetworkHash.class)
+                .addAnnotatedClass(YouPorn.class)
                 .setProperties(properties)
                 .buildSessionFactory().getCurrentSession();
     }
@@ -54,7 +56,8 @@ public class HibernateUtill {
 
         return new Configuration()
                 .addAnnotatedClass(PornHub.class)
-                .addAnnotatedClass(PornHubHash.class)
+                .addAnnotatedClass(NetworkHash.class)
+                .addAnnotatedClass(YouPorn.class)
                 .setProperties(properties)
                 .buildSessionFactory();
     }

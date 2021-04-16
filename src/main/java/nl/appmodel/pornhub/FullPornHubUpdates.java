@@ -6,9 +6,10 @@ import lombok.SneakyThrows;
 import lombok.ToString;
 import lombok.extern.java.Log;
 import lombok.val;
-import nl.appmodel.PornHubHash;
 import nl.appmodel.realtime.HibernateUtill;
+import nl.appmodel.realtime.SCVContext;
 import nl.appmodel.realtime.Update;
+import nl.appmodel.realtime.model.NetworkHash;
 import org.eclipse.microprofile.context.ManagedExecutor;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
@@ -18,34 +19,21 @@ import javax.inject.Inject;
 import javax.persistence.FlushModeType;
 import javax.persistence.LockModeType;
 import javax.transaction.Transactional;
-import java.io.BufferedInputStream;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDate;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.zip.CRC32;
-import java.util.zip.ZipInputStream;
 @Log
 @ApplicationScoped
 public class FullPornHubUpdates implements Update {
-    private       int          changes       = 0;
-    private final List<String> sqlStatements = new ArrayList<>();
-    private final Set<Long>    seenIds       = new HashSet<>();
-    private       long         skipped       = 0, examinedRecords = 0;
-    private              URL             url;
-    private static final char            separator = '|';
-    private final        Map<Long, Long> hashes    = new ConcurrentHashMap<>();
-    String URL   = "https://www.pornhub.com/files/pornhub.com-db.zip";
-    int    total = 0;
+    private final Set<Long>       seenIds = new HashSet<>();
+    private final Map<Long, Long> hashes  = new ConcurrentHashMap<>();
+    static        String          URL     = "https://www.pornhub.com/files/pornhub.com-db.zip";
     @Inject
     ManagedExecutor executor;
     Executor executor_used;
@@ -54,26 +42,22 @@ public class FullPornHubUpdates implements Update {
     Session session;
     @SneakyThrows
     public static void main(String[] args) {
-        var pornHubUpdates = new FullPornHubUpdates();
-        pornHubUpdates.url = new URL("https://www.pornhub.com/files/pornhub.com-db.zip");
-        //pornHubUpdates.URL           = "C:\\Users\\michael\\Downloads\\pornhub.com-db.zip";
-        //pornHubUpdates.url           = new File(pornHubUpdates.URL).toURI().toURL();
-        pornHubUpdates.executor_used = Executors.newCachedThreadPool();
-        pornHubUpdates.fact          = HibernateUtil.em();
-        pornHubUpdates.session       = HibernateUtil.getCurrentSession();
-        pornHubUpdates.session.getTransaction().begin();
-        pornHubUpdates.preflight();
+        var updates = new FullPornHubUpdates();
+        URL = "https://www.pornhub.com/files/pornhub.com-db.zip";
+        // URL           = "C:\\Users\\michael\\Downloads\\pornhub.com-db.zip";
+        // url           = new File(updates.URL).toURI().toURL();
+        updates.executor_used = Executors.newCachedThreadPool();
+        updates.fact          = HibernateUtill.em();
+        updates.session       = HibernateUtill.getCurrentSession();
+        updates.session.getTransaction().begin();
+        updates.preflight();
     }
     public void cleanUp() {
-        examinedRecords = 0;
-        skipped         = 0;
-        changes         = 0;
         seenIds.clear();
         hashes.clear();
         session.close();
-        sqlStatements.clear();
     }
-    private void resolveHashes(Consumer<PornHubHash> consumer) {
+    private void resolveHashes(Consumer<NetworkHash> consumer) {
         executor_used.execute(() -> {
             session.setFlushMode(FlushModeType.AUTO);
      /*       NativeQuery nativeQuery = session.createNativeQuery("SELECT pornhub,crc FROM pornhub ORDER BY pornhub FOR UPDATE SKIP LOCKED", "REMAP");
@@ -81,8 +65,8 @@ public class FullPornHubUpdates implements Update {
             nativeQuery.stream().forEach(o -> {
                 log.info("[{}]" + o.toString());
             });*/
-            var query = session.createQuery("SELECT new nl.appmodel.PornHubHash(pornhub,crc) from PornHub order by pornhub",
-                                            PornHubHash.class);
+            var query = session.createQuery("SELECT new nl.appmodel.realtime.model.NetworkHash(pornhub,crc) from PornHub order by pornhub",
+                                            NetworkHash.class);
             query.setLockMode(LockModeType.NONE);
             query.setReadOnly(true);
             try (val stream = query
@@ -93,29 +77,29 @@ public class FullPornHubUpdates implements Update {
     }
     @SneakyThrows
     public void preflight_skip_dl() {
-        sqlStatements.clear();
         if (executor_used == null) executor_used = executor;
-        if (url == null) url = new URL(URL);
         resolveHashes(pornHubHash -> hashes.put(pornHubHash.getPornhub(), pornHubHash.getCrc()));
-        this.pornhubVideos(-1L);
+        var ctx          = new SCVContext(new URL(URL));
+        var lineConsumer = this.lineConsumer(ctx);
+        this.readZip(ctx, readSourceFile('|', lineConsumer));
         cleanOptimisticRows();
-        batchPersist();
+        batchPersist(ctx).run();
         setUnavailableStatus();
         cleanUp();
     }
     private void cleanOptimisticRows() {
-
     }
     @Scheduled(cron = "0 09 02 * * ?", identity = "full-pornhub-videos-update")
     @Transactional
     @SneakyThrows
     public void preflight() {
-        sqlStatements.clear();
         if (executor_used == null) executor_used = executor;
-        if (url == null) url = new URL(URL);
         resolveHashes(pornHubHash -> hashes.put(pornHubHash.getPornhub(), pornHubHash.getCrc()));
-        preflight(session, this::pornhubVideos, url);
-        batchPersist();
+        var ctx             = new SCVContext(new URL(URL));
+        var lineConsumer    = this.lineConsumer(ctx);
+        var resourceHandler = this.readSourceFile('|', lineConsumer);
+        preflight(session, ctx, () -> this.readZip(ctx, resourceHandler));
+        batchPersist(ctx).run();
         setUnavailableStatus();
         cleanUp();
     }
@@ -137,18 +121,6 @@ public class FullPornHubUpdates implements Update {
                                                         """.formatted(collect));
             val changes = nativeQuery.executeUpdate();
             log.info("Unavailable records:" + changes);
-        }
-    }
-    @SneakyThrows
-    public void pornhubVideos(Long offset) {
-        try (val bis = new BufferedInputStream(url.openStream());
-             val zis = new ZipInputStream(bis)) {
-            val ze = zis.getNextEntry();
-            log.info("File: %s Size: %s Last Modified %s"
-                             .formatted(ze.getName(), ze.getSize(), LocalDate.ofEpochDay(ze.getTime() / MILLS_IN_DAY)));
-            try (val br = new BufferedReader(new InputStreamReader(zis, StandardCharsets.UTF_8))) {
-                readSourceFile(separator, br, this::readPornhubSourceFileEntry);
-            }
         }
     }
     public long pornhubIdFromThumb(String in) {
@@ -191,74 +163,79 @@ public class FullPornHubUpdates implements Update {
         }
     }
     @SneakyThrows
-    private void readPornhubSourceFileEntry(String[] strings) {
-        //TODO: CRC should be here.. the setup now is less error prone
-        //var crc32 = new CRC32();
-        //crc32.update(String.join("", strings).getBytes(StandardCharsets.UTF_8));
-
-        examinedRecords++;
-        val pornhub = pornhubIdFromThumb(strings[1]);
-        if (strings.length < 13 ||
-            Arrays.stream(strings).anyMatch(s -> s == null) ||
-            pornhubIdFromThumb(strings[11]) != pornhub ||
-            pornhub < 0
-        ) {
-            log.warning("Invalid record, skipping [" + String.join(" ", strings) + "]");
-            return;
-        }
-        try {
-            addToBatch(pornhub, new PornhubRow(pornhub,
-                                               strings[0],
-                                               escapeStrict(strings[3]),
-                                               escapeStrict(strings[4]),
-                                               escapeStrict(strings[5]),
-                                               escapeStrict(strings[6]),
-                                               Math.min(sqlNumber(strings[7]), 65535),
-                                               INT(sqlNumber(strings[8])),
-                                               INT(sqlNumber(strings[9])),
-                                               INT(sqlNumber(strings[10])),
-                                               CONCAT(escape(strings[11]), escape(strings[12]))).crc32()
-                      );
-        } catch (Exception e) {
-            log.warning("Invalid record " + String.join(" ", strings));
-        }
+    private Consumer<String[]> lineConsumer(SCVContext ctx) {
+        return (strings) -> {
+            //TODO: CRC should be here.. the setup now is less error prone
+            //var crc32 = new CRC32();
+            //crc32.update(String.join("", strings).getBytes(StandardCharsets.UTF_8));
+            ctx.addExamined();
+            val pornhub = pornhubIdFromThumb(strings[1]);
+            if (strings.length < 13 ||
+                Arrays.stream(strings).anyMatch(s -> s == null) ||
+                pornhubIdFromThumb(strings[11]) != pornhub ||
+                pornhub < 0
+            ) {
+                log.warning("Invalid record, skipping [" + String.join(" ", strings) + "]");
+                return;
+            }
+            try {
+                addToBatch(ctx, pornhub, new PornhubRow(pornhub,
+                                                        strings[0],
+                                                        escapeStrict(strings[3]),
+                                                        escapeStrict(strings[4]),
+                                                        escapeStrict(strings[5]),
+                                                        escapeStrict(strings[6]),
+                                                        Math.min(sqlNumber(strings[7]), 65535),
+                                                        INT(sqlNumber(strings[8])),
+                                                        INT(sqlNumber(strings[9])),
+                                                        INT(sqlNumber(strings[10])),
+                                                        CONCAT(escape(strings[11]), escape(strings[12]))).crc32()
+                          );
+            } catch (Exception e) {
+                log.warning("Invalid record " + String.join(" ", strings));
+            }
+        };
     }
-    private void addToBatch(long pornhub, PornhubRow row) {
+    private void addToBatch(SCVContext ctx, long pornhub, PornhubRow row) {
         if (hashes.containsKey(pornhub)) {
             if (row.$crc == hashes.get(pornhub)) {
-                skipped++;
+                ctx.addSkipped();
             } else {
-                sqlStatements.add(row.crc_meta32().sql());
+                ctx.add(row.crc_meta32().sql());
             }
             hashes.remove(pornhub);
         } else {
-            sqlStatements.add(row.crc_meta32().sql());
+            ctx.add(row.crc_meta32().sql());
             seenIds.add(pornhub);
         }
-        if (examinedRecords % 10000 == 0) {
-            log.info("Progress Examined:[" + examinedRecords + "] Changes:[" + changes + "] total:[" + total + "] skipped" + skipped);
+        if (ctx.getExamined() % 10000 == 0) {
+            log.info("Progress Examined:[" + ctx.getExamined() + "] Changes:[" + ctx
+                    .getChanges() + "] total:[" + ctx.getTotal() + "] skipped" + ctx.getStats().skipped);
         }
-        if (sqlStatements.size() >= 10000) batchPersist();
+        if (ctx.size() >= 10000) batchPersist(ctx).run();
     }
     /**
      * batch large request synchronous partitioning
      */
     @SneakyThrows
-    private void batchPersist() {
-        var rest = sqlStatements;
-        while (!rest.isEmpty()) {
-            val batch_size = Math.min(100000, rest.size());
-            val subSet     = new ArrayList<>(rest.subList(0, batch_size));
-            rest = rest.subList(batch_size, rest.size());
-            persistBatch(subSet);
-        }
-        sqlStatements.clear();
+    private Runnable batchPersist(SCVContext ctx) {
+        return () -> {
+            var rest = ctx.getSqlStatements();
+            while (!rest.isEmpty()) {
+                val batch_size = Math.min(100000, rest.size());
+                val subSet     = new ArrayList<>(rest.subList(0, batch_size));
+                rest = rest.subList(batch_size, rest.size());
+                persistBatch(ctx, subSet);
+            }
+            ctx.clear();
+        };
     }
     /**
      * Multithreading persisting solution
      */
     @Transactional
-    private void persistBatch(List<String> subSet) {
+    private void persistBatch(SCVContext ctx, List<String> subSet) {
+
         val block = """
                     INSERT INTO prosite.pornhub (up,down,views,duration,cat,tag,actor,header,preview_d,w,h,pornhub,keyid,$crc_meta,$crc)
                     SELECT * FROM pornhub AS new 
@@ -284,15 +261,16 @@ public class FullPornHubUpdates implements Update {
                     """.replace("SELECT * FROM pornhub AS new", "VALUES " + String.join(",\n", subSet) + " AS new ");
         //what i want to say to the status, meta done, stats done, (if downloaded or not stay that way) , if error/deleted or not stay that way.
         executor_used.execute(() -> {
-            total += subSet.size();
+            ctx.addTotal(subSet.size());
             val em      = fact.createEntityManager();
             val session = em.unwrap(Session.class);
             Work work = con -> {
                 em.getTransaction().begin();
                 try (val stmt = con.prepareStatement(block)) {
                     var matched = stmt.executeUpdate();
-                    log.info("Matched [" + matched + "][" + (changes += stmt
-                            .getUpdateCount()) + "][" + total + "] skipped" + skipped + "/" + examinedRecords);
+                    log.info("Matched [" + matched + "][" + (ctx.addChanges(
+                            stmt.getUpdateCount())) + "][" + ctx.getTotal() + "] skipped" + ctx.getStats().skipped + "/" + ctx
+                                     .getExamined());
                     em.getTransaction().commit();
                 } catch (Exception e) {
                     new Text(block, e.getMessage()).print();
@@ -303,37 +281,5 @@ public class FullPornHubUpdates implements Update {
             };
             session.doWork(work);
         });
-    }
-    @AllArgsConstructor
-    class Text {
-        String story, err;
-        public void print() {
-            try {
-                Matcher m = Pattern.compile("at line ([0-9]+)").matcher(this.err);   // the pattern to search for
-                m.find();
-                var lines = Integer.parseInt(m.group(1));
-                val split = this.story.split("\n");
-                log.info(split[Math.max(0, lines - 1)] + "\n" + split[lines] + '\n' + split[Math.min(split.length, lines + 1)]);
-            } catch (Exception e) {
-                log.warning(story);
-                log.warning(err);
-                log.warning("Error" + e);
-            }
-        }
-    }
-    record Text2(String story, String err) {
-        public void print() {
-            try {
-                Matcher m = Pattern.compile("at line ([0-9]+)").matcher(this.err);   // the pattern to search for
-                m.find();
-                var lines = Integer.parseInt(m.group(1));
-                val split = this.story.split("\n");
-                log.info(split[lines - 1] + "\n" + split[lines - 1] + '\n' + split[lines + 1]);
-            } catch (Exception e) {
-                log.warning(story);
-                log.warning(err);
-                log.warning("Error" + e);
-            }
-        }
     }
 }

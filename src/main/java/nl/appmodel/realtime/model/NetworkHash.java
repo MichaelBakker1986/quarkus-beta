@@ -1,4 +1,4 @@
-package nl.appmodel;
+package nl.appmodel.realtime.model;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -11,13 +11,14 @@ import javax.persistence.*;
 @SqlResultSetMapping(
         name = "REMAP",
         classes = @ConstructorResult(
-                targetClass = PornHubHash.class,
+                targetClass = NetworkHash.class,
                 columns = {
                         @ColumnResult(name = "pornhub", type = long.class),
                         @ColumnResult(name = "crc", type = long.class)}))
 @Entity
 @Immutable
-public class PornHubHash {
+public class NetworkHash {
     @Id long pornhub;
     long crc;
+    public long getHash() { return pornhub; }
 }

@@ -1,4 +1,4 @@
-package nl.appmodel;
+package nl.appmodel.realtime.model;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import lombok.Data;

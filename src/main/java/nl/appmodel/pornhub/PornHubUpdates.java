@@ -2,9 +2,11 @@ package nl.appmodel.pornhub;
 
 import io.quarkus.scheduler.Scheduled;
 import lombok.SneakyThrows;
-import lombok.extern.slf4j.Slf4j;
+import lombok.extern.java.Log;
 import lombok.val;
 import nl.appmodel.realtime.HibernateUtill;
+import nl.appmodel.realtime.LongCall;
+import nl.appmodel.realtime.SCVContext;
 import nl.appmodel.realtime.Update;
 import org.hibernate.Session;
 import javax.enterprise.context.ApplicationScoped;
@@ -12,51 +14,42 @@ import javax.inject.Inject;
 import javax.transaction.Transactional;
 import java.awt.TrayIcon.MessageType;
 import java.io.BufferedInputStream;
+import java.io.Reader;
 import java.io.StringReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.logging.Logger;
+import java.util.function.Consumer;
 import java.util.zip.ZipInputStream;
-@Slf4j
+@Log
 @ApplicationScoped
 public class PornHubUpdates implements Update {
-    private static final Logger       LOG           = Logger.getLogger(String.valueOf(PornHubUpdates.class));
-    private              long         nBytesOffset  = 0;
-    private              int          changes       = 0;
-    private              long         update_time   = new Date().getTime();
-    private final        List<String> sqlStatements = new ArrayList<>();
-    private              long         totalLength   = 0;
-    private              URL          url;
-    private static final char         separator     = '|';
+    private String url = "https://www.pornhub.com/files/pornhub.com-db.zip";
     @Inject
     Session session;
     @SneakyThrows
     public static void main(String[] args) {
-        var pornHubUpdates = new PornHubUpdates();
-        pornHubUpdates.url = new URL("https://www.pornhub.com/files/pornhub.com-db.zip");
+        var updates = new PornHubUpdates();
+        updates.session = HibernateUtill.getCurrentSession();
+        updates.session.getTransaction().begin();
         //   var url = new File("C:\\Users\\michael\\Documents\\Downloads\\pornhub.com-db.zip").toURI().toURL();
-        pornHubUpdates.session = HibernateUtill.getCurrentSession();
-        pornHubUpdates.session.getTransaction().begin();
-        pornHubUpdates.update_time = new Date().getTime();
-        pornHubUpdates.sqlStatements.clear();
-        pornHubUpdates.preflight();
-        pornHubUpdates.session.getTransaction().commit();
-        pornHubUpdates.session.close();
+        var ctx            = new SCVContext(new URL("https://www.pornhub.com/files/pornhub.com-db.zip"));
+        var readerConsumer = updates.readSourceFile('|', updates.lineConsumer(ctx));
+        var zipCall        = updates.readZip(ctx, readerConsumer);
+        updates.prepare(ctx, () -> zipCall.call());
+        updates.session.getTransaction().commit();
+        updates.session.close();
     }
     @Scheduled(cron = "0 56 23 * * ?", identity = "new-pornhub-videos")
     @Transactional
     @SneakyThrows
     public void preflight() {
-        url = new URL("https://www.pornhub.com/files/pornhub.com-db.zip");
+        var url = new URL("https://www.pornhub.com/files/pornhub.com-db.zip");
         long cachedLastModified = Long.parseLong(String.valueOf(
                 session.createNativeQuery(
-                        "SELECT IFNULL((SELECT value from prosite.cursors c where c.name='pornhub_videos_file_last_modified'),0)")
+                        "SELECT IFNULL((SELECT value FROM prosite.cursors c WHERE c.name='pornhub_videos_file_last_modified'),0)")
                        .getSingleResult()));
 
         var connection      = (HttpURLConnection) url.openConnection();
@@ -67,7 +60,10 @@ public class PornHubUpdates implements Update {
                                               .toEpochMilli();
         connection.getInputStream().close();
         if (headerModifiedUTC != cachedLastModified) {
-            pornhubVideosOffset(content_length, this::pornhubVideos);
+            var ctx            = new SCVContext(url);
+            var readerConsumer = readSourceFile('|', this.lineConsumer(ctx));
+            var zipCall        = this.readZip(ctx, readerConsumer);
+            prepare(ctx.withTotalLength(content_length), () -> zipCall.call());
             session.createNativeQuery(
                     "REPLACE INTO prosite.cursors VALUES ('pornhub_videos_file_last_modified',:pornhub_videos_file_last_modified)")
                    .setParameter(
@@ -77,90 +73,102 @@ public class PornHubUpdates implements Update {
                                  MessageType.INFO);
         }
     }
-    public void pornhubVideosOffset(long content_length, Runnable runnable) {
+    public void prepare(SCVContext ctx, Runnable runnable) {
         try {
-            update_time = new Date().getTime();
-            sqlStatements.clear();
-            changes = 0;
             var cursor_name = getClass().getSimpleName().toLowerCase() + "_cursor";
-            nBytesOffset = Long.parseLong(String.valueOf(
+            ctx.withLength(Long.parseLong(String.valueOf(
                     session.createNativeQuery(
-                            "SELECT IFNULL((SELECT value from prosite.cursors c where c.name=:cursor_name),10930072417)")
+                            "SELECT IFNULL((SELECT value FROM prosite.cursors c WHERE c.name=:cursor_name),10930072417)")
                            .setParameter("cursor_name", cursor_name)
-                           .getSingleResult()));
+                           .getSingleResult())));
             runnable.run();
-            batchPersist();
-            if (totalLength > nBytesOffset)
+            batchPersist(ctx);
+            if (ctx.getContent_length() > ctx.getContent_length_offset())
                 session.createNativeQuery("REPLACE INTO prosite.cursors VALUES (:cursor_name,:totalLength)")
-                       .setParameter("totalLength", String.valueOf(totalLength))
+                       .setParameter("totalLength", String.valueOf(ctx.getContent_length()))
                        .setParameter("cursor_name", cursor_name)
                        .executeUpdate();
             notifier.displayTray("Success - " + getClass().getSimpleName(),
-                                 "changes [" + changes + "] offset [" + nBytesOffset + "] total [" + totalLength + "]",
+                                 "changes [" + ctx.getChanges() + "] offset [" + ctx
+                                         .getContent_length_offset() + "] total [" + ctx.getContent_length() + "]",
                                  MessageType.INFO);
         } catch (Exception e) {
-            log.error("ERROR", e);
+            log.severe("ERROR" + e.getMessage());
             notifier.displayTray("Fail - " + getClass().getSimpleName(), e.getMessage(), MessageType.ERROR);
-        } finally {
-            sqlStatements.clear();
-            changes = 0;
         }
     }
     @SneakyThrows
-    public void pornhubVideos() {
-        try (var bis = new BufferedInputStream(url.openStream());
-             var zis = new ZipInputStream(bis)) {
-            var ze = zis.getNextEntry();
-            log.info("File: {} Size: {} Last Modified {}", ze.getName(), ze.getSize(), LocalDate.ofEpochDay(ze.getTime() / MILLS_IN_DAY));
-            var skipped = 0L;
-            if (ze.getSize() > nBytesOffset) {
-                totalLength = ze.getSize();
-                long safe_offset = Math.max(0, nBytesOffset - 1000); //
-                //how can JAVA write such bad API, skip (long) is chopped by INTEGER.MAX_VALUE. (why not just take an INTEGER instead..)
-                while ((skipped += zis.skip(safe_offset - skipped)) < safe_offset) ;
-                var remainder  = new String(zis.readAllBytes());
-                var first_lb   = remainder.indexOf('\n');
-                var usefulPart = remainder.substring(first_lb + 1);
-                try (var read = new StringReader(usefulPart)) {
-                    readSourceFile(separator, read, this::readPornhubSourceFileEntry);
+    public LongCall readZip(SCVContext ctx, Consumer<Reader> reader) {
+        return () -> {
+            long totalLength = 0;
+            try (var bis = new BufferedInputStream(ctx.getUrl().openStream());
+                 var zis = new ZipInputStream(bis)) {
+                var ze = zis.getNextEntry();
+                log.info("File: {} Size: {} Last Modified {}" + new Object[]{ze.getName(), ze.getSize(),
+                                                                             LocalDate.ofEpochDay(ze.getTime() / MILLS_IN_DAY)});
+                var skipped = 0L;
+                if (ze.getSize() > ctx.getContent_length_offset()) {
+                    totalLength = ze.getSize();
+
+                    long safe_offset = Math.max(0, ctx.getContent_length_offset() - 1000); //
+                    //how can JAVA write such bad API, skip (long) is chopped by INTEGER.MAX_VALUE. (why not just take an INTEGER instead..)
+                    while ((skipped += zis.skip(safe_offset - skipped)) < safe_offset) ;
+                    var remainder  = new String(zis.readAllBytes());
+                    var first_lb   = remainder.indexOf('\n');
+                    var usefulPart = remainder.substring(first_lb + 1);
+                    try (var read = new StringReader(usefulPart)) {
+                        reader.accept(read);
+                    }
+                } else {
+                    log.info("No new data found");
                 }
-            } else {
-                log.info("No new data found");
             }
-        }
+            return totalLength;
+        };
     }
     @SneakyThrows
-    private void readPornhubSourceFileEntry(String[] strings) {
-        val picture_d  = escape(strings[1]);
-        val preview_d  = escape(strings[2]);
-        val pornhub_id = picture_d.split("/")[6];
-        val header     = escape(strings[3]);
-        val tags       = escape(strings[4]);
-        val cat        = escape(strings[5]);
-        val duration   = sqlNumber(strings[7]);
-        val views      = sqlNumber(strings[8]);
-        val up         = sqlNumber(strings[9]);
-        val down       = sqlNumber(strings[10]);
-        var dims       = dims(strings[0]);
-        val keyId      = escape(dims.getSrc().split("/")[4]);
-        if (!isNumeric(pornhub_id)) {
-            log.info("Not updating: [{}]", String.join(" ", strings));
-        } else {
-            sqlStatements.add(
-                    "(" + up + "," + down + "," + views + "," + duration + ",'" + cat + "',\"" + tags + "\",\"" + header + "\",\"" + picture_d + "\",\"" + preview_d + "\"," + dims
-                            .getW() + "," + dims.getH() + "," + pornhub_id + ",'" + keyId + "'," + update_time + ",1)");
-        }
+    private Consumer<String[]> lineConsumer(SCVContext ctx) {
+        return (strings) -> {
+            val preview_d = CONCAT(escape(strings[11]), escape(strings[12]));
+            val pornhub   = strings[1].split("/")[6];
+            val header    = escape(strings[3]);
+            val tags      = escape(strings[4]);
+            val cat       = escape(strings[5]);
+            val duration  = sqlNumber(strings[7]);
+            val views     = sqlNumber(strings[8]);
+            val up        = sqlNumber(strings[9]);
+            val down      = sqlNumber(strings[10]);
+            var dims      = dims(strings[0]);
+            val keyId     = escape(dims.getSrc().split("/")[4]);
+            if (!isNumeric(pornhub)) {
+                log.info("Not updating: [{}]" + String.join(" ", strings));
+            } else {
+                ctx.add(
+                        "(" + up + "," + down + "," + views + "," + duration + ",'" + cat + "',\"" + tags + "\",\"" + header + "\",\"" + preview_d + "\"," + dims
+                                .getW() + "," + dims.getH() + "," + pornhub + ",'" + keyId + "',0)");
+            }
+        };
     }
     @SneakyThrows
-    private void batchPersist() {
-        if (sqlStatements.isEmpty()) return;
+    private void batchPersist(SCVContext ctx) {
+        if (ctx.isEmpty()) return;
         var sql = """
-                  INSERT INTO prosite.pornhub (up,down,views,duration,cat,tag,header,picture_d,preview_d,w,h,pornhub_id,keyid,updated,status) VALUES
-                  %s  
-                  AS new ON DUPLICATE KEY UPDATE up=new.up,down=new.down,views=new.views, duration=new.duration, cat=new.cat, tag=new.tag, header=new.header, picture_d=new.picture_d, preview_d=new.preview_d, w=new.w, h=new.h, pornhub_id=new.pornhub_id, updated=new.updated, 
-                  prosite.pornhub.status=IF(prosite.pornhub.preview_d != new.preview_d,5,  IF (prosite.pornhub.tag != new.tag OR prosite.pornhub.cat != new.cat OR prosite.pornhub.views != new.views,IF(prosite.pornhub.status=2 OR prosite.pornhub.status=4,4,prosite.pornhub.status)));
-                  """.formatted(String.join(",\n", sqlStatements));
-        changes = session.createNativeQuery(sql)
-                         .executeUpdate();
+                  INSERT INTO prosite.pornhub (up,down,views,duration,cat,tag,header,preview_d,w,h,pornhub,keyid,flag)
+                  SELECT * FROM pornhub AS new
+                  ON DUPLICATE KEY UPDATE 
+                  up=new.up,
+                  down=new.down,
+                  views=new.views, 
+                  duration=new.duration, 
+                  cat=new.cat, 
+                  tag=new.tag, 
+                  header=new.header, 
+                  preview_d=new.preview_d, 
+                  w=new.w, 
+                  h=new.h, 
+                  updated=DEFAULT 
+                        """.replace("SELECT * FROM pornhub AS new", "VALUES " + String.join(",\n", ctx.getSqlStatements()) + " AS new ");
+        ctx.addChanges(session.createNativeQuery(sql)
+                              .executeUpdate());
     }
 }

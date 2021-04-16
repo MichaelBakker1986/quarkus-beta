@@ -9,9 +9,11 @@ import lombok.SneakyThrows;
 import lombok.val;
 import org.hibernate.Session;
 import java.awt.TrayIcon.MessageType;
-import java.io.Reader;
+import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.function.Consumer;
@@ -19,35 +21,37 @@ import java.util.logging.Logger;
 import java.util.regex.MatchResult;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.zip.ZipInputStream;
 public interface Update {
     Logger   LOG          = Logger.getLogger(String.valueOf(Update.class));
     Notifier notifier     = new Notifier();
     Long     MILLS_IN_DAY = 86400000L;
-
     @SneakyThrows
-    default void readSourceFile(char sep, Reader in_reader, Consumer<String[]> consumer) {
-        var csvReaderBuilder = new CSVReaderBuilder(in_reader)
-                .withKeepCarriageReturn(true)
-                .withFieldAsNull(CSVReaderNullFieldIndicator.EMPTY_SEPARATORS)
-                .withCSVParser(
-                        new CSVParserBuilder()
-                                .withEscapeChar((char) 0)
-                                .withIgnoreQuotations(true)
-                                .withSeparator(sep)
-                                .withStrictQuotes(false)
-                                .build()).build();
-        var iterator = csvReaderBuilder
-                .iterator();
-        while (iterator.hasNext()) {
-            consumer.accept(iterator.next());
-        }
+    default Consumer<Reader> readSourceFile(char sep, Consumer<String[]> consumer) {
+        return (in_reader) -> {
+            var csvReaderBuilder = new CSVReaderBuilder(in_reader)
+                    .withKeepCarriageReturn(true)
+                    .withFieldAsNull(CSVReaderNullFieldIndicator.EMPTY_SEPARATORS)
+                    .withCSVParser(
+                            new CSVParserBuilder()
+                                    .withEscapeChar((char) 0)
+                                    .withIgnoreQuotations(true)
+                                    .withSeparator(sep)
+                                    .withStrictQuotes(false)
+                                    .build()).build();
+            var iterator = csvReaderBuilder
+                    .iterator();
+            while (iterator.hasNext()) {
+                consumer.accept(iterator.next());
+            }
+        };
     }
     @SneakyThrows
-    default void preflight(Session session, Consumer<Long> runnable, URL url) {
-        this.preflight(getClass().getSimpleName().toLowerCase(), session, runnable, url);
+    default void preflight(Session session, SCVContext ctx, Runnable zipCall) {
+        this.preflight(getClass().getSimpleName().toLowerCase(), session, ctx.getUrl(), ctx, zipCall);
     }
     @SneakyThrows
-    default void preflight(String param_name, Session session, Consumer<Long> runnable, URL url) {
+    default void preflight(String param_name, Session session, URL url, SCVContext ctx, Runnable zipCall) {
         long cachedLastModified = Long.parseLong(String.valueOf(
                 session.createNativeQuery(
                         "SELECT IFNULL((SELECT value FROM prosite.marker c WHERE c.name=:param_name),0)")
@@ -63,7 +67,8 @@ public interface Update {
                                               .toEpochMilli();
         connection.getInputStream().close();
         if (headerModifiedUTC != cachedLastModified) {
-            runnable.accept(contentLength);
+            ctx.setContentLength(contentLength);
+            zipCall.run();
             session.createNativeQuery(
                     "REPLACE INTO prosite.marker VALUES (:param_name,:file_last_modified)")
                    .setParameter("param_name", param_name)
@@ -97,8 +102,6 @@ public interface Update {
         return s.replaceAll("^[\"`' ]+|[\"`' ]+$", "");
     }
     static void main(String[] args) {
-
-
         //  var dims = new Update() {}.dims("testabsd width='100' height=100");
         var upd = new Update() {};
         var matches = Pattern.compile("(\\S+)=[\"']?((?:.(?![\"']?\\s+(?:\\S+)=|\\s*\\/?[>\"']))+.)[\"']?")
@@ -125,7 +128,7 @@ public interface Update {
         return in
                 .replaceAll("[\\\\{\\[]", "(")
                 .replaceAll("[/}\\]]", ")")
-                .replaceAll("[;:? ]", ",")
+                .replaceAll("[;:?&]", ",")
                 .replaceAll("[\"`]", "'");
     }
     default String escape(String in) {
@@ -133,7 +136,7 @@ public interface Update {
         return in
                 .replaceAll("[{\\[]", "(")
                 .replaceAll("[}\\]]", ")")
-                .replaceAll("[; ]", ",")
+                .replaceAll("[;&]", ",")
                 .replaceAll("[\"`]", "'");
     }
     default boolean isNumeric(String str) {
@@ -142,6 +145,41 @@ public interface Update {
             return false;
         }
         return str.chars().allMatch(Character::isDigit);
+    }
+    @SneakyThrows
+    default LongCall readZip(SCVContext ctx, Consumer<Reader> reader) {
+        return () -> {
+            var totalLength = 0L;
+            try (val bis = new BufferedInputStream(ctx.getUrl().openStream());
+                 val zis = new ZipInputStream(bis)) {
+                val ze = zis.getNextEntry();
+                totalLength = ze.getSize();
+                LOG.info("File: %s Size: %s Last Modified %s"
+                                 .formatted(ze.getName(), ze.getSize(), LocalDate.ofEpochDay(ze.getTime() / MILLS_IN_DAY)));
+                try (val br = new BufferedReader(new InputStreamReader(zis, StandardCharsets.UTF_8))) {
+
+                    reader.accept(br);
+                }
+            }
+            return totalLength;
+        };
+    }
+    @SneakyThrows
+    default long readZip4gMaxDirect(SCVContext ctx, Consumer<Reader> reader) {
+        long totalLength;
+        try (var bis = new BufferedInputStream(ctx.getUrl().openStream());
+             var zis = new ZipInputStream(bis)) {
+            //we will only use the first entry
+            var ze = zis.getNextEntry();
+            //sure this will be only one file..
+            LOG.info("File: %s Size: %s Last Modified %s"
+                             .formatted(ze.getName(), ze.getSize(), LocalDate.ofEpochDay(ze.getTime() / MILLS_IN_DAY)));
+            totalLength = ze.getSize();
+            try (var read = new StringReader(new String(zis.readAllBytes()))) {
+                reader.accept(read);
+            }
+        }
+        return totalLength;
     }
     interface Sneak<T> {
         default T with() {

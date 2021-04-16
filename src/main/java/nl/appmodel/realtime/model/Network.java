@@ -1,4 +1,4 @@
-package nl.appmodel;
+package nl.appmodel.realtime.model;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

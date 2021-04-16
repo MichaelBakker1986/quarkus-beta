@@ -1,4 +1,4 @@
-package nl.appmodel;
+package nl.appmodel.realtime.model;
 
 import lombok.AccessLevel;
 import lombok.Data;

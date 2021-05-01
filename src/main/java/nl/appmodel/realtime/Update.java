@@ -7,12 +7,15 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.SneakyThrows;
 import lombok.val;
+import org.apache.commons.text.StringEscapeUtils;
 import org.hibernate.Session;
 import java.awt.TrayIcon.MessageType;
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -101,7 +104,35 @@ public interface Update {
     default String trim(String s) {
         return s.replaceAll("^[\"`' ]+|[\"`' ]+$", "");
     }
+    @SneakyThrows
     static void main(String[] args) {
+        String s =
+                StringEscapeUtils.unescapeHtml4(new String("""
+                                                               , '[ÒÓÔÕÖØ]', 'O')
+                                                                ,'[ÙÚÛÜ]','U')
+                                                           ,'[ÌÍÎÏ¡Ÿ]','I')
+                                                           ,'[ÈÉÊË£]','E')
+                                                           ,'[ÀÁâÃÄÅÆ©@]','A')
+                                                           """
+                                                                   .replaceAll("[ÒÓÔÕÖØ]", "O")
+                                                                   .replaceAll("[òóôõöø]", "o")
+                                                                   .replaceAll("[ÙÚÛÜ]", "U")
+                                                                   .replaceAll("[ùúûü]", "u")
+                                                                   .replaceAll("[Ÿ¥]", "Y")
+                                                                   .replaceAll("[ÿ¥]", "y")
+                                                                   .replaceAll("[ÌÍÎÏİI¡]", "I")
+                                                                   .replaceAll("[ìíîïi̇i¡]", "i")
+                                                                   .replaceAll("[ÈÉÊË£]", "E")
+                                                                   .replaceAll("[èéêë£]", "e")
+                                                                   .replaceAll("[©]", "C")
+                                                                   .replaceAll("[Æ]", "AE")
+                                                                   .replaceAll("[ÀÁÂÃÄÅĄ]", "A")
+                                                                   .replaceAll("[àáâãäåą]", "a")
+                                                                   .getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.UTF_8));
+
+        Files.write(Paths.get("cyrillic.txt"),
+                    ("\uFEFF" + s).getBytes(StandardCharsets.UTF_8));
+
         //  var dims = new Update() {}.dims("testabsd width='100' height=100");
         var upd = new Update() {};
         var matches = Pattern.compile("(\\S+)=[\"']?((?:.(?![\"']?\\s+(?:\\S+)=|\\s*\\/?[>\"']))+.)[\"']?")
@@ -120,24 +151,94 @@ public interface Update {
     default int INT(Number i) {
         return (int) Math.min(Integer.MAX_VALUE, i.longValue());
     }
+    String[][] tanslate = {
+            {"ÒÓÔÕÖØÓÔÖÓÓÓООØÒŌФ", "O"}
+    };
     default String CONCAT(String... args) {
         return String.join(",", args).replaceAll("^,|,$", "");
     }
+    default String toASCII(String in) {
+        if (in == null) return "";
+        return in.replaceAll("[ÒÓÔÕÖØÓÔÖÓÓÓООØÒŌФ]", "O")
+                 .replaceAll("[òóôõöøóôöóóóооøòōф]", "o")
+                 .replaceAll("[ÙÚÛÜüЧЦÜÙÚ]", "U")
+                 .replaceAll("[ùúûüüчцüùú]", "u")
+                 .replaceAll("[ÌÍÎÏİI]", "I")
+                 .replaceAll("[ìíîïi̇iíîï]", "i")
+                 .replaceAll("[ÈÉÊË£ÉÉÈЕĘЁÊË]", "E")
+                 .replaceAll("[èéêë£ééèеęёêë]", "e")
+                 .replaceAll("[ÀÁÂÃÄÅĄДАÄÃÃÁÀАДĀ]", "A")
+                 .replaceAll("[àáâãäåąдаäããáàадā]", "a")
+                 .replaceAll("[Ÿ¥У]", "Y")
+                 .replaceAll("[ÿ¥у]", "y")
+                 .replaceAll("[йñпли]", "n")
+                 .replaceAll("[ЙÑПЛИ]", "N")
+                 .replaceAll("[гяř]", "r")
+                 .replaceAll("[ГЯŘ]", "R")
+                 .replaceAll("[çсçčс©]", "c")
+                 .replaceAll("[ÇСÇČС]", "C")
+                 .replaceAll("[Æ]", "AE")
+                 .replaceAll("[æ]", "ae")
+                 .replaceAll("[ы]", "bl")
+                 .replaceAll("[ы]", "bl")
+                 .replaceAll("[ß]", "ss")
+                 .replaceAll("[ВЬ]", "B")
+                 .replaceAll("[вь]", "b")
+                 .replaceAll("[Бб]", "6")
+                 .replaceAll("[зЭ]", "3")
+                 .replaceAll("[ш]", "w")
+                 .replaceAll("[Ш]", "W")
+                 .replaceAll("[жх]", "x")
+                 .replaceAll("[ЖХ]", "X")
+                 .replaceAll("[м]", "m")
+                 .replaceAll("[М]", "M")
+                 .replaceAll("[ż]", "z")
+                 .replaceAll("[Ż]", "Z")
+                 .replaceAll("[к]", "k")
+                 .replaceAll("[К]", "K")
+                 .replaceAll("[н]", "h")
+                 .replaceAll("[H]", "H")
+                 .replaceAll("[т]", "t")
+                 .replaceAll("[Т]", "T")
+                 .replaceAll("[р]", "p")
+                 .replaceAll("[Р]", "P")
+                 .replaceAll("[–]", "-")
+                 .replaceAll("[¿]", "?")
+                 .replaceAll("[¦]", ":")
+                 .replaceAll("[¡]", "!")
+                ;
+    }
+    //¤§Ä¼Ã¹¡?¦Сè❤ñàöÐâß:теяблю…оïç’îé,´
+    default String quote(String in) {
+        if (in == null) return null;
+        return in.replaceAll("[´’`]|&#39;", "'");
+    }
+    default String escapeHeaderDescription(String in) {
+        if (in == null) return "";
+        return quote(toASCII(StringEscapeUtils.unescapeHtml4(in)))
+                .replaceAll("[{\\[]", "(")
+                .replaceAll("[}\\]]", ")")
+                .replaceAll("\\s+", " ")
+                .replaceAll("[;]", ",")
+                .replaceAll("[\"]", "'");
+    }
     default String escapeStrict(String in) {
         if (in == null) return "";
-        return in
+        return quote(StringEscapeUtils.unescapeHtml4(in))
                 .replaceAll("[\\\\{\\[]", "(")
                 .replaceAll("[/}\\]]", ")")
+                .replaceAll("\\s+", " ")
                 .replaceAll("[;:?&]", ",")
-                .replaceAll("[\"`]", "'");
+                .replaceAll("[\"]", "'");
     }
     default String escape(String in) {
         if (in == null) return "";
-        return in
+        return quote(toASCII(StringEscapeUtils.unescapeHtml4(in)))
                 .replaceAll("[{\\[]", "(")
                 .replaceAll("[}\\]]", ")")
+                .replaceAll("\\s+", " ")
                 .replaceAll("[;&]", ",")
-                .replaceAll("[\"`]", "'");
+                .replaceAll("[\"]", "'");
     }
     default boolean isNumeric(String str) {
         // null or empty

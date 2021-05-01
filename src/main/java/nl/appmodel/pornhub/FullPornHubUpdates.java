@@ -181,7 +181,7 @@ public class FullPornHubUpdates implements Update {
             try {
                 addToBatch(ctx, pornhub, new PornhubRow(pornhub,
                                                         strings[0],
-                                                        escapeStrict(strings[3]),
+                                                        escapeHeaderDescription(strings[3]),
                                                         escapeStrict(strings[4]),
                                                         escapeStrict(strings[5]),
                                                         escapeStrict(strings[6]),
